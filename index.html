@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Braço de Guitarra</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="page">
+    <header class="page-header">
+      <h1>Braço de Guitarra</h1>
+      <p>Escolha uma nota e uma escala, ou clique em qualquer casa para descobrir a nota.</p>
+    </header>
+
+    <section class="controls" aria-label="Opções do braço">
+      <fieldset class="control control-root">
+        <legend>Nota</legend>
+        <div class="root-options" id="root-options"></div>
+      </fieldset>
+
+      <div class="control">
+        <label for="scale-select">Escala</label>
+        <select id="scale-select"></select>
+      </div>
+
+      <fieldset class="control">
+        <legend>Mostrar como</legend>
+        <div class="segmented">
+          <label><input type="radio" name="notation" value="letters" checked><span>C D E</span></label>
+          <label><input type="radio" name="notation" value="solfege"><span>Dó Ré Mi</span></label>
+          <label><input type="radio" name="notation" value="degrees"><span>Graus</span></label>
+        </div>
+      </fieldset>
+    </section>
+
+    <section class="scale-summary" aria-live="polite">
+      <h2 id="scale-title"></h2>
+      <ol id="scale-notes" class="scale-notes"></ol>
+    </section>
+
+    <section class="neck-panel" aria-label="Braço da guitarra">
+      <div class="neck-scroll" tabindex="-1">
+        <div class="neck" id="neck" role="group" aria-label="Casas do braço. Use as setas para navegar e Enter para selecionar."></div>
+      </div>
+      <ul class="legend">
+        <li><span class="swatch swatch-tonic"></span>Tônica</li>
+        <li><span class="swatch swatch-scale"></span>Nota da escala</li>
+        <li><span class="swatch swatch-selected"></span>Selecionada por você</li>
+      </ul>
+    </section>
+
+    <section class="selection">
+      <div class="selection-header">
+        <h2>Notas selecionadas</h2>
+        <button type="button" class="clear" id="clear" hidden>Limpar seleção</button>
+      </div>
+      <p class="empty" id="empty">Clique em uma casa de qualquer corda para ver a nota aqui e sobre a corda.</p>
+      <ul class="cards" id="cards" aria-live="polite"></ul>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
