@@ -2,6 +2,8 @@
 
 Braço de guitarra interativo para visualizar escalas e descobrir notas. Feito com HTML, CSS e JavaScript puros, sem dependências.
 
+![Braço de guitarra mostrando todas as notas A, com a corda 5 solta selecionada manualmente](screenshot.png)
+
 ## Como usar
 
 Abra o `index.html` no navegador. Não é preciso instalar nada nem rodar um servidor.
@@ -22,3 +24,4 @@ O braço tem cordas soltas e 22 casas, em afinação padrão, com a corda 1 (E a
 | `index.html` | Estrutura da página |
 | `style.css` | Estilos |
 | `script.js` | Teoria musical, montagem do braço e interação |
+| `screenshot.png` | Captura de tela usada neste README |
