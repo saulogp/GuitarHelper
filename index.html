@@ -10,18 +10,31 @@
   <main class="page">
     <header class="page-header">
       <h1>Braço de Guitarra</h1>
-      <p>Escolha uma nota e uma escala, ou clique em qualquer casa para descobrir a nota.</p>
+      <p>Escolha uma nota e uma escala ou acorde, ou clique em qualquer casa para descobrir a nota.</p>
     </header>
 
     <section class="controls" aria-label="Opções do braço">
+      <fieldset class="control">
+        <legend>Visualizar</legend>
+        <div class="segmented">
+          <label><input type="radio" name="mode" value="scales" checked><span>Escalas</span></label>
+          <label><input type="radio" name="mode" value="chords"><span>Acordes</span></label>
+        </div>
+      </fieldset>
+
       <fieldset class="control control-root">
         <legend>Nota</legend>
         <div class="root-options" id="root-options"></div>
       </fieldset>
 
-      <div class="control">
+      <div class="control" id="scale-control">
         <label for="scale-select">Escala</label>
         <select id="scale-select"></select>
+      </div>
+
+      <div class="control" id="chord-control" hidden>
+        <label for="chord-select">Acorde</label>
+        <select id="chord-select"></select>
       </div>
 
       <fieldset class="control">
@@ -32,6 +45,27 @@
           <label><input type="radio" name="notation" value="degrees"><span>Graus</span></label>
         </div>
       </fieldset>
+    </section>
+
+    <section class="metronome" aria-label="Metrônomo">
+      <button type="button" class="metronome-toggle" id="metronome-toggle" aria-pressed="false">Iniciar metrônomo</button>
+      <label class="bpm-number" for="bpm-number">BPM
+        <input type="number" id="bpm-number" min="30" max="240" step="1" value="80">
+      </label>
+      <input type="range" class="bpm-range" id="bpm-range" min="30" max="240" step="1" value="80" aria-label="Ajustar BPM">
+      <ol class="beats" id="beats" aria-hidden="true"></ol>
+      <div class="bpm-ramp">
+        <label class="ramp-toggle"><input type="checkbox" id="ramp-enabled">Aumentar BPM</label>
+        <label class="ramp-field">A cada
+          <input type="number" id="ramp-every" min="1" max="64" step="1" value="4" disabled>
+          loops de 4 tempos
+        </label>
+        <label class="ramp-field">somar
+          <input type="number" id="ramp-step" min="1" max="50" step="1" value="10" disabled>
+          BPM
+        </label>
+        <span class="loop-status" id="loop-status"></span>
+      </div>
     </section>
 
     <section class="scale-summary" aria-live="polite">
@@ -45,9 +79,15 @@
       </div>
       <ul class="legend">
         <li><span class="swatch swatch-tonic"></span>Tônica</li>
-        <li><span class="swatch swatch-scale"></span>Nota da escala</li>
+        <li><span class="swatch swatch-scale"></span><span id="legend-scale">Nota da escala</span></li>
         <li><span class="swatch swatch-selected"></span>Selecionada por você</li>
+        <li id="legend-muted" hidden><span class="swatch-muted" aria-hidden="true">×</span>Corda abafada</li>
       </ul>
+    </section>
+
+    <section class="voicings-panel" id="voicings-panel" hidden>
+      <h2>Variações</h2>
+      <ul class="voicings" id="voicings"></ul>
     </section>
 
     <section class="selection">

@@ -61,9 +61,64 @@ const SCALE_GROUPS = [
 
 const SCALES = new Map(SCALE_GROUPS.flatMap((group) => group.scales).map((scale) => [scale.id, scale]));
 
+const CHORD_GROUPS = [
+  {
+    label: 'Tríades',
+    chords: [
+      { id: 'maj', symbol: '', label: 'Maior', degrees: ['1', '3', '5'] },
+      { id: 'min', symbol: 'm', label: 'Menor', degrees: ['1', 'b3', '5'] },
+      { id: 'dim', symbol: 'dim', label: 'Diminuto', degrees: ['1', 'b3', 'b5'] },
+      { id: 'aug', symbol: 'aug', label: 'Aumentado', degrees: ['1', '3', '#5'] },
+      { id: 'sus2', symbol: 'sus2', label: 'Suspenso com 2ª', degrees: ['1', '2', '5'] },
+      { id: 'sus4', symbol: 'sus4', label: 'Suspenso com 4ª', degrees: ['1', '4', '5'] },
+      { id: 'power', symbol: '5', label: 'Power chord', degrees: ['1', '5'], maxStrings: 3 },
+    ],
+  },
+  {
+    label: 'Sétimas e sextas',
+    chords: [
+      { id: '7', symbol: '7', label: 'Com sétima', degrees: ['1', '3', '5', 'b7'] },
+      { id: 'maj7', symbol: 'maj7', label: 'Com sétima maior', degrees: ['1', '3', '5', '7'] },
+      { id: 'm7', symbol: 'm7', label: 'Menor com sétima', degrees: ['1', 'b3', '5', 'b7'] },
+      { id: 'm7b5', symbol: 'm7(b5)', label: 'Meio diminuto', degrees: ['1', 'b3', 'b5', 'b7'] },
+      { id: 'dim7', symbol: 'dim7', label: 'Diminuto com sétima', degrees: ['1', 'b3', 'b5', 'bb7'] },
+      { id: '7sus4', symbol: '7sus4', label: 'Com sétima e 4ª suspensa', degrees: ['1', '4', '5', 'b7'] },
+      { id: '6', symbol: '6', label: 'Com sexta', degrees: ['1', '3', '5', '6'] },
+      { id: 'm6', symbol: 'm6', label: 'Menor com sexta', degrees: ['1', 'b3', '5', '6'] },
+    ],
+  },
+  {
+    label: 'Com nona',
+    chords: [
+      { id: 'add9', symbol: 'add9', label: 'Com nona adicionada', degrees: ['1', '3', '5', '9'] },
+      { id: '9', symbol: '9', label: 'Com sétima e nona', degrees: ['1', '3', '5', 'b7', '9'] },
+      { id: 'm9', symbol: 'm9', label: 'Menor com sétima e nona', degrees: ['1', 'b3', '5', 'b7', '9'] },
+    ],
+  },
+];
+
+const CHORDS = new Map(CHORD_GROUPS.flatMap((group) => group.chords).map((chord) => [chord.id, chord]));
+
+const MAX_FRET_SPAN = 3; // distância máxima entre casas pressionadas numa mesma forma
+const MAX_FINGERS = 4;
+const OPEN_POSITION_MAX_FRET = 3; // formas com cordas soltas só pressionam até esta casa
+
+const BPM_MIN = 30;
+const BPM_MAX = 240;
+const BEATS_PER_BAR = 4;
+const SCHEDULE_INTERVAL_MS = 25;
+const SCHEDULE_AHEAD_SECONDS = 0.1;
+
 const state = {
+  mode: 'scales', // 'scales' ou 'chords'
   root: 'C',
   scale: 'major',
+  chord: 'maj',
+  voicing: 0, // índice da variação; -1 mostra todas as notas do acorde
+  bpm: 80,
+  rampEnabled: false,
+  rampEvery: 4, // quantos loops tocar antes de aumentar o BPM
+  rampStep: 10,
   notation: 'letters',
   selected: [], // [{ string, fret }], a mais recente primeiro
 };
@@ -71,6 +126,21 @@ const state = {
 const el = {
   rootOptions: document.getElementById('root-options'),
   scaleSelect: document.getElementById('scale-select'),
+  scaleControl: document.getElementById('scale-control'),
+  chordSelect: document.getElementById('chord-select'),
+  chordControl: document.getElementById('chord-control'),
+  voicingsPanel: document.getElementById('voicings-panel'),
+  voicings: document.getElementById('voicings'),
+  legendScale: document.getElementById('legend-scale'),
+  legendMuted: document.getElementById('legend-muted'),
+  metronomeToggle: document.getElementById('metronome-toggle'),
+  bpmNumber: document.getElementById('bpm-number'),
+  bpmRange: document.getElementById('bpm-range'),
+  beats: document.getElementById('beats'),
+  rampEnabled: document.getElementById('ramp-enabled'),
+  rampEvery: document.getElementById('ramp-every'),
+  rampStep: document.getElementById('ramp-step'),
+  loopStatus: document.getElementById('loop-status'),
   scaleTitle: document.getElementById('scale-title'),
   scaleNotes: document.getElementById('scale-notes'),
   neck: document.getElementById('neck'),
@@ -81,6 +151,7 @@ const el = {
 
 const positions = []; // positions[corda][casa] = { button, note }
 let scaleNotes = new Map(); // classe de altura → { name, degree }
+let voicings = []; // formas do acorde atual: [{ frets, bassString }]
 
 /* Teoria musical */
 
@@ -92,8 +163,9 @@ function pitchClass(name) {
 
 function degreeSemitones(degree) {
   const number = Number(degree.at(-1));
-  const accidental = degree[0] === '#' ? 1 : degree[0] === 'b' ? -1 : 0;
-  return NATURAL_PCS[number - 1] + accidental;
+  const flats = degree.split('b').length - 1;
+  const accidental = degree[0] === '#' ? 1 : -flats;
+  return NATURAL_PCS[(number - 1) % 7] + accidental;
 }
 
 function usesFlats(root) {
@@ -120,7 +192,8 @@ function spellDegree(root, degree) {
 
 function buildScaleNotes() {
   const notes = new Map();
-  for (const degree of SCALES.get(state.scale).degrees) {
+  const { degrees } = state.mode === 'chords' ? CHORDS.get(state.chord) : SCALES.get(state.scale);
+  for (const degree of degrees) {
     const { pc, name } = spellDegree(state.root, degree);
     notes.set(pc, { name, degree });
   }
@@ -141,6 +214,112 @@ function noteAt(string, fret) {
   };
 }
 
+/* Formas de acorde */
+
+// Dedos necessários, ou Infinity se a forma não couber na mão. A casa mais baixa pode
+// ser feita com pestana, desde que nenhuma corda solta ou abafada fique sob ela.
+function fingersNeeded(frets) {
+  const pressed = frets.map((fret, string) => ({ fret, string })).filter(({ fret }) => fret > 0);
+  if (pressed.length === 0) return 0;
+
+  const lowest = Math.min(...pressed.map(({ fret }) => fret));
+  const barreStrings = pressed.filter(({ fret }) => fret === lowest).map(({ string }) => string);
+  const canBarre = frets
+    .slice(Math.min(...barreStrings), Math.max(...barreStrings) + 1)
+    .every((fret) => fret > 0);
+
+  return pressed.length - (canBarre ? barreStrings.length - 1 : 0);
+}
+
+function heardTones(frets) {
+  return new Set(frets.flatMap((fret, string) => (
+    fret === null ? [] : [(STRINGS[string].pc + fret) % 12]
+  )));
+}
+
+function voicingScore(frets, tones) {
+  const sounding = frets.filter((fret) => fret !== null);
+  const pressed = sounding.filter((fret) => fret > 0);
+  const span = pressed.length ? Math.max(...pressed) - Math.min(...pressed) : 0;
+  return sounding.length * 3 - fingersNeeded(frets) * 2 - span + (heardTones(frets).size === tones.size ? 2 : 0);
+}
+
+// Procura, para cada tônica no baixo (cordas 6, 5 e 4, dentro de uma oitava), a melhor
+// forma fechada e a melhor forma com cordas soltas. Sem abafar cordas no meio da forma.
+function findVoicings(root, chord) {
+  const rootPc = pitchClass(root);
+  const toneOf = (degree) => (rootPc + degreeSemitones(degree) + 12) % 12;
+  const tones = new Set(chord.degrees.map(toneOf));
+  // A quinta é a nota dispensável em acordes de quatro ou mais notas.
+  const required = chord.degrees.filter((degree) => chord.degrees.length < 4 || degree !== '5').map(toneOf);
+  const maxStrings = chord.maxStrings ?? STRINGS.length;
+  const minStrings = chord.maxStrings ? 2 : 4;
+  const best = new Map();
+
+  function consider(frets, bassString) {
+    const sounding = frets.filter((fret) => fret !== null).length;
+    if (sounding < minStrings || sounding > maxStrings) return;
+    const heard = heardTones(frets);
+    if (!required.every((tone) => heard.has(tone))) return;
+    if (fingersNeeded(frets) > MAX_FINGERS) return;
+    if (frets.includes(0) && Math.max(...frets) > OPEN_POSITION_MAX_FRET) return;
+    // Corda solta logo acima de um baixo pressionado costuma gerar formas pouco naturais.
+    if (frets[bassString] > 0 && frets[bassString - 1] === 0) return;
+
+    const score = voicingScore(frets, tones);
+    const key = `${bassString}-${frets[bassString]}-${frets.includes(0)}`;
+    if (!best.has(key) || score > best.get(key).score) {
+      best.set(key, { frets: [...frets], bassString, score });
+    }
+  }
+
+  function extend(frets, string, bassString) {
+    if (string < 0) {
+      consider(frets, bassString);
+      return;
+    }
+
+    // Abafar esta corda significa abafar também todas as mais agudas.
+    consider(frets, bassString);
+
+    const bassFret = frets[bassString];
+    const pressed = frets.filter((fret) => fret > 0);
+    const low = Math.min(...pressed, Infinity);
+    const high = Math.max(...pressed, -Infinity);
+
+    if (bassFret <= OPEN_POSITION_MAX_FRET && tones.has(STRINGS[string].pc)) {
+      frets[string] = 0;
+      extend(frets, string - 1, bassString);
+      frets[string] = null;
+    }
+
+    const first = Math.max(1, high - MAX_FRET_SPAN);
+    const last = Math.min(FRET_COUNT, low + MAX_FRET_SPAN);
+    for (let fret = first; fret <= last; fret++) {
+      if (!tones.has((STRINGS[string].pc + fret) % 12)) continue;
+      frets[string] = fret;
+      extend(frets, string - 1, bassString);
+      frets[string] = null;
+    }
+  }
+
+  for (const bassString of [5, 4, 3]) {
+    for (let fret = 0; fret < 12; fret++) {
+      if ((STRINGS[bassString].pc + fret) % 12 !== rootPc) continue;
+      const frets = Array(STRINGS.length).fill(null);
+      frets[bassString] = fret;
+      extend(frets, bassString - 1, bassString);
+    }
+  }
+
+  return [...best.values()].sort((a, b) => lowestFret(a.frets) - lowestFret(b.frets) || b.bassString - a.bassString);
+}
+
+function lowestFret(frets) {
+  const pressed = frets.filter((fret) => fret > 0);
+  return pressed.length ? Math.min(...pressed) : 0;
+}
+
 /* Formatação */
 
 function textName(name) {
@@ -149,6 +328,10 @@ function textName(name) {
 
 function scaleTitle() {
   const root = textName(state.root);
+  if (state.mode === 'chords') {
+    const chord = CHORDS.get(state.chord);
+    return `${root}${chord.symbol} (${chord.label.toLowerCase()})`;
+  }
   if (state.scale === 'none') return 'Sem escala';
   if (state.scale === 'note') return `Todas as notas ${root}`;
   return `${root} ${SCALES.get(state.scale).label.replace(/ \(.*\)/, '').toLowerCase()}`;
@@ -167,7 +350,7 @@ function enharmonic(note) {
 
 function relationText(note) {
   const root = textName(state.root);
-  if (state.scale === 'none' || state.scale === 'note') {
+  if (state.mode === 'scales' && (state.scale === 'none' || state.scale === 'note')) {
     return note.isRoot ? `Mesma nota que ${root}` : `Intervalo ${note.degree} a partir de ${root}`;
   }
   return note.inScale ? `Grau ${note.degree} em ${scaleTitle()}` : `Fora de ${scaleTitle()}`;
@@ -195,14 +378,20 @@ function buildRootOptions() {
   }
 }
 
-function buildScaleSelect() {
-  for (const group of SCALE_GROUPS) {
+function buildSelect(select, groups, itemsKey, selectedId) {
+  for (const group of groups) {
     const optgroup = document.createElement('optgroup');
     optgroup.label = group.label;
-    for (const scale of group.scales) {
-      optgroup.append(new Option(scale.label, scale.id, false, scale.id === state.scale));
+    for (const item of group[itemsKey]) {
+      optgroup.append(new Option(item.label, item.id, false, item.id === selectedId));
     }
-    el.scaleSelect.append(optgroup);
+    select.append(optgroup);
+  }
+}
+
+function buildBeats() {
+  for (let beat = 0; beat < BEATS_PER_BAR; beat++) {
+    el.beats.append(createElement('li', beat === 0 ? 'beat beat-accent' : 'beat'));
   }
 }
 
@@ -278,21 +467,135 @@ function renderSummary() {
 
 function renderNeck() {
   const selected = new Set(state.selected.map(({ string, fret }) => `${string}-${fret}`));
+  const voicing = state.mode === 'chords' ? voicings[state.voicing] : undefined;
 
   positions.forEach((frets, string) => {
     frets.forEach(({ button, note: noteNode }, fret) => {
       const note = noteAt(string, fret);
       const isSelected = selected.has(`${string}-${fret}`);
-      const showTonic = note.isRoot && note.inScale;
+      const isVisible = voicing ? voicing.frets[string] === fret : note.inScale;
+      const showTonic = note.isRoot && isVisible;
+      const isMuted = fret === 0 && voicing?.frets[string] === null && !isSelected;
 
-      button.classList.toggle('is-scale', note.inScale);
+      button.classList.toggle('is-scale', isVisible);
+      button.classList.toggle('is-muted', isMuted);
       button.classList.toggle('is-tonic', showTonic);
       button.classList.toggle('is-selected', isSelected);
       button.setAttribute('aria-pressed', isSelected);
-      button.setAttribute('aria-label', `${positionLabel({ string, fret })}: ${textName(note.name)}`);
-      noteNode.textContent = state.notation === 'degrees' ? note.degree : textName(note.name);
+      button.setAttribute(
+        'aria-label',
+        `${positionLabel({ string, fret })}: ${textName(note.name)}${isMuted ? ' (não tocar nesta forma)' : ''}`,
+      );
+      noteNode.textContent = isMuted ? '×' : state.notation === 'degrees' ? note.degree : textName(note.name);
     });
   });
+}
+
+function svgElement(tag, attributes) {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, value);
+  return node;
+}
+
+// Diagrama vertical tradicional: corda 6 à esquerda, pestana do braço no topo.
+function chordDiagram({ frets }) {
+  const rootPc = pitchClass(state.root);
+  const rows = MAX_FRET_SPAN + 1;
+  const gap = 14;
+  const left = 22;
+  const top = 22;
+  const width = left + gap * (STRINGS.length - 1) + 8;
+  const height = top + gap * rows + 6;
+  const highest = Math.max(...frets);
+  const firstFret = highest <= rows ? 1 : lowestFret(frets);
+  const xOf = (string) => left + gap * (STRINGS.length - 1 - string);
+  const svg = svgElement('svg', { viewBox: `0 0 ${width} ${height}`, class: 'diagram', 'aria-hidden': 'true' });
+
+  for (let row = 0; row <= rows; row++) {
+    const y = top + gap * row;
+    const isNut = row === 0 && firstFret === 1;
+    svg.append(svgElement('line', {
+      x1: left, x2: xOf(0), y1: y, y2: y, class: isNut ? 'diagram-nut' : 'diagram-line',
+    }));
+  }
+
+  if (firstFret > 1) {
+    const label = svgElement('text', { x: left - 9, y: top + gap / 2 + 4, class: 'diagram-fret' });
+    label.textContent = firstFret;
+    svg.append(label);
+  }
+
+  frets.forEach((fret, string) => {
+    const x = xOf(string);
+    const isRoot = fret !== null && (STRINGS[string].pc + fret) % 12 === rootPc;
+    svg.append(svgElement('line', { x1: x, x2: x, y1: top, y2: top + gap * rows, class: 'diagram-line' }));
+
+    if (fret === null) {
+      const mute = svgElement('text', { x, y: top - 7, class: 'diagram-mute' });
+      mute.textContent = '×';
+      svg.append(mute);
+    } else if (fret === 0) {
+      svg.append(svgElement('circle', {
+        cx: x, cy: top - 10, r: 4, class: isRoot ? 'diagram-open is-root' : 'diagram-open',
+      }));
+    } else {
+      svg.append(svgElement('circle', {
+        cx: x,
+        cy: top + gap * (fret - firstFret + 0.5),
+        r: 5.5,
+        class: isRoot ? 'diagram-dot is-root' : 'diagram-dot',
+      }));
+    }
+  });
+
+  return svg;
+}
+
+// Da corda 6 para a 1, como se lê uma cifra: x-3-2-0-1-0.
+function tabText({ frets }) {
+  return [...frets].reverse().map((fret) => (fret === null ? 'x' : fret)).join('-');
+}
+
+function voicingTitle({ frets }) {
+  return frets.includes(0) ? 'Forma aberta' : `Casa ${lowestFret(frets)}`;
+}
+
+function voicingButton(index, children, label) {
+  const item = createElement('li');
+  const button = createElement('button', 'voicing');
+  button.type = 'button';
+  button.dataset.voicing = index;
+  button.setAttribute('aria-pressed', index === state.voicing);
+  button.setAttribute('aria-label', label);
+  button.append(...children);
+  item.append(button);
+  return item;
+}
+
+function renderVoicings() {
+  el.voicingsPanel.hidden = state.mode !== 'chords';
+  if (state.mode !== 'chords') return;
+
+  el.voicings.replaceChildren(
+    ...voicings.map((voicing, index) => voicingButton(
+      index,
+      [
+        chordDiagram(voicing),
+        createElement('strong', '', voicingTitle(voicing)),
+        createElement('small', '', `Tônica na corda ${voicing.bassString + 1}`),
+        createElement('code', '', tabText(voicing)),
+      ],
+      `Variação ${index + 1}: ${voicingTitle(voicing)}, tônica na corda ${voicing.bassString + 1}, ${tabText(voicing)}`,
+    )),
+    voicingButton(
+      -1,
+      [
+        createElement('strong', '', 'Todas as notas'),
+        createElement('small', '', 'Em todo o braço'),
+      ],
+      'Mostrar todas as notas do acorde em todo o braço',
+    ),
+  );
 }
 
 function renderSelection() {
@@ -325,11 +628,127 @@ function renderSelection() {
 }
 
 function render() {
+  const isChordMode = state.mode === 'chords';
   scaleNotes = buildScaleNotes();
+  voicings = isChordMode ? findVoicings(state.root, CHORDS.get(state.chord)) : [];
+
+  el.scaleControl.hidden = isChordMode;
+  el.chordControl.hidden = !isChordMode;
+  el.legendScale.textContent = isChordMode ? 'Nota do acorde' : 'Nota da escala';
+  el.legendMuted.hidden = !isChordMode;
+
   renderRootOptions();
   renderSummary();
   renderNeck();
+  renderVoicings();
   renderSelection();
+}
+
+/* Metrônomo */
+
+const metronome = {
+  context: null,
+  output: null, // ganho da execução atual; desconectá-lo silencia o que já foi agendado
+  timer: null,
+  nextBeatTime: 0,
+  beat: 0,
+  loop: 0, // loop atual dentro do ciclo de aumento; 0 antes do primeiro tempo
+};
+
+function scheduleClick(time, isAccent) {
+  const { context, output } = metronome;
+  const oscillator = context.createOscillator();
+  const envelope = context.createGain();
+
+  oscillator.frequency.value = isAccent ? 1500 : 1000;
+  envelope.gain.setValueAtTime(isAccent ? 0.5 : 0.3, time);
+  envelope.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+  oscillator.connect(envelope).connect(output);
+  oscillator.start(time);
+  oscillator.stop(time + 0.05);
+}
+
+function showBeat(beat) {
+  [...el.beats.children].forEach((node, index) => node.classList.toggle('is-active', index === beat));
+}
+
+// Chamada a cada primeiro tempo: o novo BPM vale a partir do início do loop seguinte.
+function advanceLoop() {
+  metronome.loop++;
+  if (metronome.loop <= state.rampEvery) return;
+
+  metronome.loop = 1;
+  if (state.rampEnabled) {
+    setBpm(state.bpm + state.rampStep);
+    showBpm();
+  }
+}
+
+function loopStatusText() {
+  if (!state.rampEnabled) return '';
+  if (state.bpm === BPM_MAX) return 'BPM máximo';
+  return `Loop ${metronome.loop} de ${state.rampEvery}`;
+}
+
+function scheduleBeats() {
+  const { context, output } = metronome;
+  metronome.nextBeatTime = Math.max(metronome.nextBeatTime, context.currentTime);
+
+  while (metronome.nextBeatTime < context.currentTime + SCHEDULE_AHEAD_SECONDS) {
+    const beat = metronome.beat;
+    if (beat === 0) advanceLoop();
+    const status = loopStatusText();
+    scheduleClick(metronome.nextBeatTime, beat === 0);
+    setTimeout(() => {
+      if (metronome.output !== output) return;
+      showBeat(beat);
+      el.loopStatus.textContent = status;
+    }, (metronome.nextBeatTime - context.currentTime) * 1000);
+
+    metronome.nextBeatTime += 60 / state.bpm;
+    metronome.beat = (beat + 1) % BEATS_PER_BAR;
+  }
+}
+
+function startMetronome() {
+  metronome.context ??= new AudioContext();
+  metronome.context.resume();
+  metronome.output = metronome.context.createGain();
+  metronome.output.connect(metronome.context.destination);
+  metronome.nextBeatTime = metronome.context.currentTime + 0.05;
+  metronome.beat = 0;
+  metronome.loop = 0;
+  metronome.timer = setInterval(scheduleBeats, SCHEDULE_INTERVAL_MS);
+  scheduleBeats();
+}
+
+function stopMetronome() {
+  clearInterval(metronome.timer);
+  metronome.timer = null;
+  metronome.output.disconnect();
+  metronome.output = null;
+  showBeat(-1);
+  el.loopStatus.textContent = '';
+}
+
+function setBpm(value) {
+  state.bpm = clampInteger(value, BPM_MIN, BPM_MAX);
+}
+
+function showBpm() {
+  el.bpmNumber.value = state.bpm;
+  el.bpmRange.value = state.bpm;
+}
+
+function clampInteger(value, min, max) {
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+// Valor do campo limitado aos seus min/max; se estiver vazio, mantém o atual.
+function readRampField(input, current) {
+  const value = input.value === '' ? current : clampInteger(Number(input.value), Number(input.min), Number(input.max));
+  input.value = value;
+  return value;
 }
 
 /* Interação */
@@ -365,12 +784,76 @@ function moveFocus(event) {
 
 el.rootOptions.addEventListener('change', (event) => {
   state.root = event.target.value;
+  state.voicing = 0;
   render();
 });
 
 el.scaleSelect.addEventListener('change', (event) => {
   state.scale = event.target.value;
   render();
+});
+
+el.chordSelect.addEventListener('change', (event) => {
+  state.chord = event.target.value;
+  state.voicing = 0;
+  render();
+});
+
+document.querySelectorAll('input[name="mode"]').forEach((input) => {
+  input.addEventListener('change', () => {
+    state.mode = input.value;
+    render();
+  });
+});
+
+el.voicings.addEventListener('click', (event) => {
+  const button = event.target.closest('.voicing');
+  if (!button) return;
+  state.voicing = Number(button.dataset.voicing);
+  render();
+  // A lista é recriada a cada renderização; devolve o foco ao botão escolhido.
+  el.voicings.querySelector(`[data-voicing="${state.voicing}"]`).focus();
+});
+
+el.metronomeToggle.addEventListener('click', () => {
+  const isRunning = metronome.timer !== null;
+  if (isRunning) stopMetronome();
+  else startMetronome();
+  el.metronomeToggle.textContent = isRunning ? 'Iniciar metrônomo' : 'Parar metrônomo';
+  el.metronomeToggle.setAttribute('aria-pressed', !isRunning);
+});
+
+el.bpmRange.addEventListener('input', () => {
+  setBpm(Number(el.bpmRange.value));
+  showBpm();
+});
+
+// Enquanto se digita, só aplica valores válidos; ao sair do campo, corrige o que sobrou.
+el.bpmNumber.addEventListener('input', () => {
+  const value = Number(el.bpmNumber.value);
+  if (value < BPM_MIN || value > BPM_MAX) return;
+  setBpm(value);
+  el.bpmRange.value = state.bpm;
+});
+
+el.bpmNumber.addEventListener('change', () => {
+  if (el.bpmNumber.value !== '') setBpm(Number(el.bpmNumber.value));
+  showBpm();
+});
+
+el.rampEnabled.addEventListener('change', () => {
+  state.rampEnabled = el.rampEnabled.checked;
+  el.rampEvery.disabled = !state.rampEnabled;
+  el.rampStep.disabled = !state.rampEnabled;
+  metronome.loop = 0; // a contagem recomeça no próximo primeiro tempo
+});
+
+el.rampEvery.addEventListener('change', () => {
+  state.rampEvery = readRampField(el.rampEvery, state.rampEvery);
+});
+
+el.rampStep.addEventListener('change', () => {
+  state.rampStep = readRampField(el.rampStep, state.rampStep);
 });
 
 document.querySelectorAll('input[name="notation"]').forEach((input) => {
@@ -398,6 +881,8 @@ el.clear.addEventListener('click', () => {
 });
 
 buildRootOptions();
-buildScaleSelect();
+buildSelect(el.scaleSelect, SCALE_GROUPS, 'scales', state.scale);
+buildSelect(el.chordSelect, CHORD_GROUPS, 'chords', state.chord);
+buildBeats();
 buildNeck();
 render();
