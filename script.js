@@ -110,7 +110,7 @@ const SCHEDULE_INTERVAL_MS = 25;
 const SCHEDULE_AHEAD_SECONDS = 0.1;
 
 const state = {
-  mode: 'scales', // 'scales' ou 'chords'
+  mode: 'scales', // 'scales', 'chords' ou 'training'
   root: 'C',
   scale: 'major',
   chord: 'maj',
@@ -119,6 +119,11 @@ const state = {
   rampEnabled: false,
   rampEvery: 4, // quantos loops tocar antes de aumentar o BPM
   rampStep: 10,
+  trainingItems: [], // [{ root, chord, voicing }], na ordem em que foram adicionados
+  trainingOrder: 'sequence', // 'sequence' ou 'random'
+  trainingUnit: 'loops', // 'loops' ou 'beats'
+  trainingLoops: 1,
+  trainingBeats: 4,
   notation: 'letters',
   selected: [], // [{ string, fret }], a mais recente primeiro
 };
@@ -129,6 +134,25 @@ const el = {
   scaleControl: document.getElementById('scale-control'),
   chordSelect: document.getElementById('chord-select'),
   chordControl: document.getElementById('chord-control'),
+  rootControl: document.getElementById('root-control'),
+  training: document.getElementById('training'),
+  trainingSetup: document.getElementById('training-setup'),
+  trainingStage: document.getElementById('training-stage'),
+  trainingAdd: document.getElementById('training-add'),
+  trainingEmpty: document.getElementById('training-empty'),
+  trainingList: document.getElementById('training-list'),
+  trainingLoops: document.getElementById('training-loops'),
+  trainingLoopsField: document.getElementById('training-loops-field'),
+  trainingBeats: document.getElementById('training-beats'),
+  trainingBeatsField: document.getElementById('training-beats-field'),
+  trainingStart: document.getElementById('training-start'),
+  trainingStop: document.getElementById('training-stop'),
+  trainingCurrentName: document.getElementById('training-current-name'),
+  trainingCurrentTab: document.getElementById('training-current-tab'),
+  trainingDiagram: document.getElementById('training-diagram'),
+  trainingCountdown: document.getElementById('training-countdown'),
+  trainingNextName: document.getElementById('training-next-name'),
+  trainingNextTab: document.getElementById('training-next-tab'),
   voicingsPanel: document.getElementById('voicings-panel'),
   voicings: document.getElementById('voicings'),
   legendScale: document.getElementById('legend-scale'),
@@ -152,6 +176,18 @@ const el = {
 const positions = []; // positions[corda][casa] = { button, note }
 let scaleNotes = new Map(); // classe de altura → { name, degree }
 let voicings = []; // formas do acorde atual: [{ frets, bassString }]
+
+const training = {
+  running: false,
+  index: 0, // acorde atual em state.trainingItems
+  next: 0,
+  beat: 0, // batida atual desde a última troca
+  metronomeWasRunning: false,
+};
+
+function usesChords() {
+  return state.mode !== 'scales';
+}
 
 /* Teoria musical */
 
@@ -192,7 +228,7 @@ function spellDegree(root, degree) {
 
 function buildScaleNotes() {
   const notes = new Map();
-  const { degrees } = state.mode === 'chords' ? CHORDS.get(state.chord) : SCALES.get(state.scale);
+  const { degrees } = usesChords() ? CHORDS.get(state.chord) : SCALES.get(state.scale);
   for (const degree of degrees) {
     const { pc, name } = spellDegree(state.root, degree);
     notes.set(pc, { name, degree });
@@ -328,7 +364,7 @@ function textName(name) {
 
 function scaleTitle() {
   const root = textName(state.root);
-  if (state.mode === 'chords') {
+  if (usesChords()) {
     const chord = CHORDS.get(state.chord);
     return `${root}${chord.symbol} (${chord.label.toLowerCase()})`;
   }
@@ -467,7 +503,7 @@ function renderSummary() {
 
 function renderNeck() {
   const selected = new Set(state.selected.map(({ string, fret }) => `${string}-${fret}`));
-  const voicing = state.mode === 'chords' ? voicings[state.voicing] : undefined;
+  const voicing = usesChords() ? voicings[state.voicing] : undefined;
 
   positions.forEach((frets, string) => {
     frets.forEach(({ button, note: noteNode }, fret) => {
@@ -502,7 +538,7 @@ function chordDiagram({ frets }) {
   const rootPc = pitchClass(state.root);
   const rows = MAX_FRET_SPAN + 1;
   const gap = 14;
-  const left = 22;
+  const left = 28;
   const top = 22;
   const width = left + gap * (STRINGS.length - 1) + 8;
   const height = top + gap * rows + 6;
@@ -520,7 +556,7 @@ function chordDiagram({ frets }) {
   }
 
   if (firstFret > 1) {
-    const label = svgElement('text', { x: left - 9, y: top + gap / 2 + 4, class: 'diagram-fret' });
+    const label = svgElement('text', { x: left - 8, y: top + gap / 2 + 4, class: 'diagram-fret' });
     label.textContent = firstFret;
     svg.append(label);
   }
@@ -573,8 +609,8 @@ function voicingButton(index, children, label) {
 }
 
 function renderVoicings() {
-  el.voicingsPanel.hidden = state.mode !== 'chords';
-  if (state.mode !== 'chords') return;
+  el.voicingsPanel.hidden = !usesChords() || training.running;
+  if (el.voicingsPanel.hidden) return;
 
   el.voicings.replaceChildren(
     ...voicings.map((voicing, index) => voicingButton(
@@ -587,15 +623,71 @@ function renderVoicings() {
       ],
       `Variação ${index + 1}: ${voicingTitle(voicing)}, tônica na corda ${voicing.bassString + 1}, ${tabText(voicing)}`,
     )),
-    voicingButton(
+  );
+
+  // O treino sempre usa uma forma específica, então só o modo Acordes mostra o braço inteiro.
+  if (state.mode === 'chords') {
+    el.voicings.append(voicingButton(
       -1,
       [
         createElement('strong', '', 'Todas as notas'),
         createElement('small', '', 'Em todo o braço'),
       ],
       'Mostrar todas as notas do acorde em todo o braço',
-    ),
+    ));
+  }
+}
+
+function trainingItemName({ root, chord }) {
+  return textName(root) + CHORDS.get(chord).symbol;
+}
+
+function trainingItemTab({ root, chord, voicing }) {
+  return tabText(findVoicings(root, CHORDS.get(chord))[voicing]);
+}
+
+function renderTrainingSetup() {
+  const items = state.trainingItems;
+  el.trainingAdd.textContent = `Adicionar ${trainingItemName(state)}`;
+  el.trainingEmpty.hidden = items.length >= 2;
+  el.trainingStart.disabled = items.length < 2;
+  el.trainingLoopsField.hidden = state.trainingUnit !== 'loops';
+  el.trainingBeatsField.hidden = state.trainingUnit !== 'beats';
+
+  el.trainingList.replaceChildren(
+    ...items.map((item, index) => {
+      const row = createElement('li', 'training-item');
+      const remove = createElement('button', 'card-remove', '×');
+      remove.type = 'button';
+      remove.dataset.index = index;
+      remove.setAttribute('aria-label', `Remover ${trainingItemName(item)} da sequência`);
+      row.append(
+        createElement('strong', '', trainingItemName(item)),
+        createElement('code', '', trainingItemTab(item)),
+        remove,
+      );
+      return row;
+    }),
   );
+}
+
+function renderTrainingStage() {
+  const next = state.trainingItems[training.next];
+  el.trainingCurrentName.textContent = trainingItemName(state);
+  el.trainingCurrentTab.textContent = tabText(voicings[state.voicing]);
+  el.trainingDiagram.replaceChildren(chordDiagram(voicings[state.voicing]));
+  el.trainingNextName.textContent = trainingItemName(next);
+  el.trainingNextTab.textContent = trainingItemTab(next);
+}
+
+function renderTraining() {
+  el.training.hidden = state.mode !== 'training';
+  el.trainingSetup.hidden = training.running;
+  el.trainingStage.hidden = !training.running;
+  if (el.training.hidden) return;
+
+  if (training.running) renderTrainingStage();
+  else renderTrainingSetup();
 }
 
 function renderSelection() {
@@ -628,12 +720,13 @@ function renderSelection() {
 }
 
 function render() {
-  const isChordMode = state.mode === 'chords';
+  const isChordMode = usesChords();
   scaleNotes = buildScaleNotes();
   voicings = isChordMode ? findVoicings(state.root, CHORDS.get(state.chord)) : [];
 
   el.scaleControl.hidden = isChordMode;
-  el.chordControl.hidden = !isChordMode;
+  el.chordControl.hidden = !isChordMode || training.running;
+  el.rootControl.hidden = training.running;
   el.legendScale.textContent = isChordMode ? 'Nota do acorde' : 'Nota da escala';
   el.legendMuted.hidden = !isChordMode;
 
@@ -641,6 +734,7 @@ function render() {
   renderSummary();
   renderNeck();
   renderVoicings();
+  renderTraining();
   renderSelection();
 }
 
@@ -703,6 +797,7 @@ function scheduleBeats() {
       if (metronome.output !== output) return;
       showBeat(beat);
       el.loopStatus.textContent = status;
+      if (training.running) countTrainingBeat();
     }, (metronome.nextBeatTime - context.currentTime) * 1000);
 
     metronome.nextBeatTime += 60 / state.bpm;
@@ -719,6 +814,7 @@ function startMetronome() {
   metronome.beat = 0;
   metronome.loop = 0;
   metronome.timer = setInterval(scheduleBeats, SCHEDULE_INTERVAL_MS);
+  showMetronomeState();
   scheduleBeats();
 }
 
@@ -729,6 +825,13 @@ function stopMetronome() {
   metronome.output = null;
   showBeat(-1);
   el.loopStatus.textContent = '';
+  showMetronomeState();
+}
+
+function showMetronomeState() {
+  const isRunning = metronome.timer !== null;
+  el.metronomeToggle.textContent = isRunning ? 'Parar metrônomo' : 'Iniciar metrônomo';
+  el.metronomeToggle.setAttribute('aria-pressed', isRunning);
 }
 
 function setBpm(value) {
@@ -745,10 +848,75 @@ function clampInteger(value, min, max) {
 }
 
 // Valor do campo limitado aos seus min/max; se estiver vazio, mantém o atual.
-function readRampField(input, current) {
+function readNumberField(input, current) {
   const value = input.value === '' ? current : clampInteger(Number(input.value), Number(input.min), Number(input.max));
   input.value = value;
   return value;
+}
+
+/* Treino de troca de acordes */
+
+function isSameChord(a, b) {
+  return a.root === b.root && a.chord === b.chord && a.voicing === b.voicing;
+}
+
+function pickNextIndex(current) {
+  const items = state.trainingItems;
+  if (state.trainingOrder === 'sequence') return (current + 1) % items.length;
+
+  // Na ordem aleatória, sempre sorteia um acorde diferente do atual.
+  const options = items.flatMap((item, index) => (isSameChord(item, items[current]) ? [] : [index]));
+  return options.length ? options[Math.floor(Math.random() * options.length)] : current;
+}
+
+function showTrainingChord(index) {
+  const { root, chord, voicing } = state.trainingItems[index];
+  training.index = index;
+  training.next = pickNextIndex(index);
+  state.root = root;
+  state.chord = chord;
+  state.voicing = voicing;
+  el.rootOptions.querySelector(`input[value="${root}"]`).checked = true;
+  el.chordSelect.value = chord;
+  render();
+}
+
+function trainingCountdownText() {
+  if (state.trainingUnit === 'beats') return `Batida ${training.beat} de ${state.trainingBeats}`;
+  const loop = Math.ceil(training.beat / BEATS_PER_BAR);
+  const beat = ((training.beat - 1) % BEATS_PER_BAR) + 1;
+  return `Loop ${loop} de ${state.trainingLoops} · tempo ${beat} de ${BEATS_PER_BAR}`;
+}
+
+// Chamada a cada batida do metrônomo. O treino começa no primeiro tempo do compasso,
+// então a troca por loop sempre cai em um primeiro tempo.
+function countTrainingBeat() {
+  const beatsPerChord = state.trainingUnit === 'beats' ? state.trainingBeats : state.trainingLoops * BEATS_PER_BAR;
+  training.beat++;
+  if (training.beat > beatsPerChord) {
+    training.beat = 1;
+    showTrainingChord(training.next);
+  }
+  el.trainingCountdown.textContent = trainingCountdownText();
+}
+
+function startTraining() {
+  const count = state.trainingItems.length;
+  training.running = true;
+  training.beat = 0;
+  el.trainingCountdown.textContent = '';
+  showTrainingChord(state.trainingOrder === 'random' ? Math.floor(Math.random() * count) : 0);
+
+  // Reinicia o metrônomo para a contagem começar no primeiro tempo do compasso.
+  training.metronomeWasRunning = metronome.timer !== null;
+  if (training.metronomeWasRunning) stopMetronome();
+  startMetronome();
+}
+
+function stopTraining() {
+  training.running = false;
+  if (!training.metronomeWasRunning && metronome.timer !== null) stopMetronome();
+  render();
 }
 
 /* Interação */
@@ -801,9 +969,55 @@ el.chordSelect.addEventListener('change', (event) => {
 
 document.querySelectorAll('input[name="mode"]').forEach((input) => {
   input.addEventListener('change', () => {
+    if (training.running) stopTraining();
     state.mode = input.value;
+    if (state.mode === 'training' && state.voicing < 0) state.voicing = 0;
     render();
   });
+});
+
+document.querySelectorAll('input[name="training-order"]').forEach((input) => {
+  input.addEventListener('change', () => {
+    state.trainingOrder = input.value;
+  });
+});
+
+document.querySelectorAll('input[name="training-unit"]').forEach((input) => {
+  input.addEventListener('change', () => {
+    state.trainingUnit = input.value;
+    render();
+  });
+});
+
+el.trainingLoops.addEventListener('change', () => {
+  state.trainingLoops = readNumberField(el.trainingLoops, state.trainingLoops);
+});
+
+el.trainingBeats.addEventListener('change', () => {
+  state.trainingBeats = readNumberField(el.trainingBeats, state.trainingBeats);
+});
+
+el.trainingAdd.addEventListener('click', () => {
+  const { root, chord, voicing } = state;
+  state.trainingItems.push({ root, chord, voicing });
+  render();
+});
+
+el.trainingList.addEventListener('click', (event) => {
+  const button = event.target.closest('.card-remove');
+  if (!button) return;
+  state.trainingItems.splice(Number(button.dataset.index), 1);
+  render();
+});
+
+el.trainingStart.addEventListener('click', () => {
+  startTraining();
+  el.trainingStop.focus();
+});
+
+el.trainingStop.addEventListener('click', () => {
+  stopTraining();
+  el.trainingStart.focus();
 });
 
 el.voicings.addEventListener('click', (event) => {
@@ -816,11 +1030,13 @@ el.voicings.addEventListener('click', (event) => {
 });
 
 el.metronomeToggle.addEventListener('click', () => {
-  const isRunning = metronome.timer !== null;
-  if (isRunning) stopMetronome();
-  else startMetronome();
-  el.metronomeToggle.textContent = isRunning ? 'Iniciar metrônomo' : 'Parar metrônomo';
-  el.metronomeToggle.setAttribute('aria-pressed', !isRunning);
+  if (metronome.timer === null) {
+    startMetronome();
+    return;
+  }
+  stopMetronome();
+  // As trocas seguem o metrônomo, então o treino para junto.
+  if (training.running) stopTraining();
 });
 
 el.bpmRange.addEventListener('input', () => {
@@ -849,11 +1065,11 @@ el.rampEnabled.addEventListener('change', () => {
 });
 
 el.rampEvery.addEventListener('change', () => {
-  state.rampEvery = readRampField(el.rampEvery, state.rampEvery);
+  state.rampEvery = readNumberField(el.rampEvery, state.rampEvery);
 });
 
 el.rampStep.addEventListener('change', () => {
-  state.rampStep = readRampField(el.rampStep, state.rampStep);
+  state.rampStep = readNumberField(el.rampStep, state.rampStep);
 });
 
 document.querySelectorAll('input[name="notation"]').forEach((input) => {

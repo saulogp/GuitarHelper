@@ -163,6 +163,9 @@ select:focus-visible,
 .bpm-number input:focus-visible,
 .ramp-toggle input:focus-visible,
 .ramp-field input:focus-visible,
+.training-number input:focus-visible,
+.training-add:focus-visible,
+.training-toggle:focus-visible,
 .bpm-range:focus-visible,
 .voicing:focus-visible {
   outline: 2px solid var(--teal);
@@ -211,7 +214,8 @@ select:focus-visible,
 }
 
 .bpm-number input,
-.ramp-field input {
+.ramp-field input,
+.training-number input {
   width: 76px;
   height: 40px;
   padding: 0 8px;
@@ -287,6 +291,190 @@ select:focus-visible,
   font-weight: 600;
   color: var(--teal);
 }
+
+/* Treino de troca de acordes */
+.training {
+  margin-top: 12px;
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.training [hidden] { display: none; }
+
+.training-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.training-sequence {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.training-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.training-heading h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  white-space: nowrap;
+}
+
+.training-sequence .empty {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.training-add {
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.training-add:hover { border-color: var(--ink); }
+
+.training-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: training-item;
+}
+
+.training-list:empty { display: none; }
+
+.training-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 2px 2px 10px;
+  background: var(--page);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  counter-increment: training-item;
+  font-size: 0.875rem;
+}
+
+.training-item::before {
+  content: counter(training-item);
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.training-item code { font-size: 0.75rem; }
+
+.training-item .card-remove {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 1rem;
+}
+
+.training-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 24px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.training-number {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+}
+
+.training-options .training-toggle { margin-left: auto; }
+
+.training-toggle {
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.training-toggle:disabled {
+  background: #ece9e2;
+  border-color: var(--line);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.training-toggle.is-stop {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.training-stage {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 40px;
+}
+
+.training-current {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.training-now {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.training-now small { color: var(--muted); }
+
+.training-now strong {
+  font-size: 3rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.training-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.training-countdown {
+  margin: 0;
+  min-height: 1.6em;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--teal);
+  font-variant-numeric: tabular-nums;
+}
+
+.training-next { margin: 0; }
 
 /* Resumo da escala */
 .scale-summary {
@@ -448,9 +636,11 @@ select:focus-visible,
 }
 
 .pos.is-muted .note {
-  background: none;
-  color: #c9c4ba;
-  font-size: 1.1rem;
+  width: 22px;
+  height: 22px;
+  background: var(--neck-panel);
+  color: #fff;
+  font-size: 1.25rem;
   font-weight: 500;
   opacity: 1;
   transform: none;
@@ -611,6 +801,8 @@ select:focus-visible,
   text-anchor: middle;
 }
 
+.diagram-fret { text-anchor: end; }
+
 .diagram-dot { fill: var(--ink); }
 .diagram-dot.is-root { fill: var(--accent); }
 
@@ -725,6 +917,9 @@ select:focus-visible,
   .page { padding: 20px 14px 40px; }
   .controls { padding: 14px; }
   .metronome { padding: 12px 14px; }
+  .training { padding: 14px; }
+  .training-heading { width: 100%; justify-content: space-between; }
+  .training-options .training-toggle { width: 100%; margin-left: 0; }
   .control { width: 100%; }
   select { width: 100%; }
   .segmented label { flex: 1; }

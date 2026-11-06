@@ -19,10 +19,11 @@
         <div class="segmented">
           <label><input type="radio" name="mode" value="scales" checked><span>Escalas</span></label>
           <label><input type="radio" name="mode" value="chords"><span>Acordes</span></label>
+          <label><input type="radio" name="mode" value="training"><span>Treino</span></label>
         </div>
       </fieldset>
 
-      <fieldset class="control control-root">
+      <fieldset class="control control-root" id="root-control">
         <legend>Nota</legend>
         <div class="root-options" id="root-options"></div>
       </fieldset>
@@ -65,6 +66,64 @@
           BPM
         </label>
         <span class="loop-status" id="loop-status"></span>
+      </div>
+    </section>
+
+    <section class="training" id="training" aria-label="Treino de troca de acordes" hidden>
+      <div class="training-setup" id="training-setup">
+        <div class="training-sequence">
+          <div class="training-heading">
+            <h2>Sequência do treino</h2>
+            <button type="button" class="training-add" id="training-add"></button>
+          </div>
+          <p class="empty" id="training-empty">Escolha a nota, o acorde e a variação (abaixo do braço) e adicione pelo menos 2 acordes.</p>
+          <ol class="training-list" id="training-list"></ol>
+        </div>
+
+        <div class="training-options">
+          <fieldset class="control">
+            <legend>Ordem</legend>
+            <div class="segmented">
+              <label><input type="radio" name="training-order" value="sequence" checked><span>Sequencial</span></label>
+              <label><input type="radio" name="training-order" value="random"><span>Aleatória</span></label>
+            </div>
+          </fieldset>
+
+          <fieldset class="control">
+            <legend>Trocar por</legend>
+            <div class="segmented">
+              <label><input type="radio" name="training-unit" value="loops" checked><span>Loop</span></label>
+              <label><input type="radio" name="training-unit" value="beats"><span>Batida</span></label>
+            </div>
+          </fieldset>
+
+          <label class="training-number" id="training-loops-field">A cada
+            <input type="number" id="training-loops" min="1" max="64" step="1" value="1">
+            loops de 4 tempos
+          </label>
+          <label class="training-number" id="training-beats-field" hidden>A cada
+            <input type="number" id="training-beats" min="1" max="64" step="1" value="4">
+            batidas
+          </label>
+
+          <button type="button" class="training-toggle" id="training-start" disabled>Iniciar treino</button>
+        </div>
+      </div>
+
+      <div class="training-stage" id="training-stage" hidden>
+        <div class="training-current">
+          <div class="training-now">
+            <small>Agora</small>
+            <strong id="training-current-name" aria-live="polite"></strong>
+            <code id="training-current-tab"></code>
+          </div>
+          <div id="training-diagram"></div>
+        </div>
+        <div class="training-info">
+          <p class="training-countdown" id="training-countdown"></p>
+          <p class="training-next">Próximo: <strong id="training-next-name"></strong> <code id="training-next-tab"></code></p>
+          <button type="button" class="training-toggle is-stop" id="training-stop">Parar treino</button>
+        </div>
       </div>
     </section>
 
