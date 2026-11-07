@@ -117,8 +117,11 @@ const state = {
   voicing: 0, // índice da variação; -1 mostra todas as notas do acorde
   bpm: 80,
   rampEnabled: false,
+  rampStart: 80, // BPM de partida sempre que o metrônomo inicia com o aumento ligado
   rampEvery: 4, // quantos loops tocar antes de aumentar o BPM
   rampStep: 10,
+  rampLimitEnabled: false,
+  rampLimit: 160, // ao terminar o ciclo neste BPM, o metrônomo para
   trainingItems: [], // [{ root, chord, voicing }], na ordem em que foram adicionados
   trainingOrder: 'sequence', // 'sequence' ou 'random'
   trainingUnit: 'loops', // 'loops' ou 'beats'
@@ -162,8 +165,11 @@ const el = {
   bpmRange: document.getElementById('bpm-range'),
   beats: document.getElementById('beats'),
   rampEnabled: document.getElementById('ramp-enabled'),
+  rampStart: document.getElementById('ramp-start'),
   rampEvery: document.getElementById('ramp-every'),
   rampStep: document.getElementById('ramp-step'),
+  rampLimitEnabled: document.getElementById('ramp-limit-enabled'),
+  rampLimit: document.getElementById('ramp-limit'),
   loopStatus: document.getElementById('loop-status'),
   scaleTitle: document.getElementById('scale-title'),
   scaleNotes: document.getElementById('scale-notes'),
@@ -766,22 +772,31 @@ function showBeat(beat) {
   [...el.beats.children].forEach((node, index) => node.classList.toggle('is-active', index === beat));
 }
 
+function hasRampLimit() {
+  return state.rampEnabled && state.rampLimitEnabled;
+}
+
 // Chamada a cada primeiro tempo: o novo BPM vale a partir do início do loop seguinte.
+// Devolve true quando o ciclo no BPM limite terminou e o metrônomo deve parar.
 function advanceLoop() {
   metronome.loop++;
-  if (metronome.loop <= state.rampEvery) return;
+  if (metronome.loop <= state.rampEvery) return false;
 
   metronome.loop = 1;
-  if (state.rampEnabled) {
-    setBpm(state.bpm + state.rampStep);
-    showBpm();
-  }
+  if (!state.rampEnabled) return false;
+  if (hasRampLimit() && state.bpm >= state.rampLimit) return true;
+
+  const next = state.bpm + state.rampStep;
+  setBpm(hasRampLimit() ? Math.min(next, state.rampLimit) : next);
+  showBpm();
+  return false;
 }
 
 function loopStatusText() {
   if (!state.rampEnabled) return '';
-  if (state.bpm === BPM_MAX) return 'BPM máximo';
-  return `Loop ${metronome.loop} de ${state.rampEvery}`;
+  const progress = `Loop ${metronome.loop} de ${state.rampEvery}`;
+  if (hasRampLimit()) return state.bpm >= state.rampLimit ? `Último ciclo: ${progress}` : progress;
+  return state.bpm === BPM_MAX ? 'BPM máximo' : progress;
 }
 
 function scheduleBeats() {
@@ -790,7 +805,11 @@ function scheduleBeats() {
 
   while (metronome.nextBeatTime < context.currentTime + SCHEDULE_AHEAD_SECONDS) {
     const beat = metronome.beat;
-    if (beat === 0) advanceLoop();
+    if (beat === 0 && advanceLoop()) {
+      stopMetronomeAndTraining();
+      el.loopStatus.textContent = `Limite de ${state.bpm} BPM atingido`;
+      return;
+    }
     const status = loopStatusText();
     scheduleClick(metronome.nextBeatTime, beat === 0);
     setTimeout(() => {
@@ -806,6 +825,10 @@ function scheduleBeats() {
 }
 
 function startMetronome() {
+  if (state.rampEnabled) {
+    setBpm(state.rampStart);
+    showBpm();
+  }
   metronome.context ??= new AudioContext();
   metronome.context.resume();
   metronome.output = metronome.context.createGain();
@@ -813,6 +836,7 @@ function startMetronome() {
   metronome.nextBeatTime = metronome.context.currentTime + 0.05;
   metronome.beat = 0;
   metronome.loop = 0;
+  el.loopStatus.textContent = '';
   metronome.timer = setInterval(scheduleBeats, SCHEDULE_INTERVAL_MS);
   showMetronomeState();
   scheduleBeats();
@@ -826,6 +850,12 @@ function stopMetronome() {
   showBeat(-1);
   el.loopStatus.textContent = '';
   showMetronomeState();
+}
+
+// As trocas do treino seguem o metrônomo, então o treino para junto.
+function stopMetronomeAndTraining() {
+  stopMetronome();
+  if (training.running) stopTraining();
 }
 
 function showMetronomeState() {
@@ -1034,9 +1064,7 @@ el.metronomeToggle.addEventListener('click', () => {
     startMetronome();
     return;
   }
-  stopMetronome();
-  // As trocas seguem o metrônomo, então o treino para junto.
-  if (training.running) stopTraining();
+  stopMetronomeAndTraining();
 });
 
 el.bpmRange.addEventListener('input', () => {
@@ -1059,9 +1087,30 @@ el.bpmNumber.addEventListener('change', () => {
 
 el.rampEnabled.addEventListener('change', () => {
   state.rampEnabled = el.rampEnabled.checked;
+  el.rampStart.disabled = !state.rampEnabled;
+  if (state.rampEnabled) {
+    // Parte do BPM atual, para o valor não mudar de surpresa ao ligar a opção.
+    state.rampStart = state.bpm;
+    el.rampStart.value = state.bpm;
+  }
   el.rampEvery.disabled = !state.rampEnabled;
   el.rampStep.disabled = !state.rampEnabled;
+  el.rampLimitEnabled.disabled = !state.rampEnabled;
+  el.rampLimit.disabled = !hasRampLimit();
   metronome.loop = 0; // a contagem recomeça no próximo primeiro tempo
+});
+
+el.rampLimitEnabled.addEventListener('change', () => {
+  state.rampLimitEnabled = el.rampLimitEnabled.checked;
+  el.rampLimit.disabled = !hasRampLimit();
+});
+
+el.rampLimit.addEventListener('change', () => {
+  state.rampLimit = readNumberField(el.rampLimit, state.rampLimit);
+});
+
+el.rampStart.addEventListener('change', () => {
+  state.rampStart = readNumberField(el.rampStart, state.rampStart);
 });
 
 el.rampEvery.addEventListener('change', () => {

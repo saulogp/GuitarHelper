@@ -57,6 +57,10 @@
       <ol class="beats" id="beats" aria-hidden="true"></ol>
       <div class="bpm-ramp">
         <label class="ramp-toggle"><input type="checkbox" id="ramp-enabled">Aumentar BPM</label>
+        <label class="ramp-field">Iniciar em
+          <input type="number" id="ramp-start" min="30" max="240" step="1" value="80" disabled>
+          BPM
+        </label>
         <label class="ramp-field">A cada
           <input type="number" id="ramp-every" min="1" max="64" step="1" value="4" disabled>
           loops de 4 tempos
@@ -65,6 +69,13 @@
           <input type="number" id="ramp-step" min="1" max="50" step="1" value="10" disabled>
           BPM
         </label>
+        <div class="ramp-limit">
+          <label class="ramp-toggle"><input type="checkbox" id="ramp-limit-enabled" disabled>Parar em</label>
+          <label class="ramp-field">
+            <input type="number" id="ramp-limit" min="30" max="240" step="1" value="160" aria-label="BPM em que o metrônomo deve parar" disabled>
+            BPM
+          </label>
+        </div>
         <span class="loop-status" id="loop-status"></span>
       </div>
     </section>
