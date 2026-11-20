@@ -28,7 +28,7 @@ Escolha em **Treinar** o tipo de treino: troca de acordes ou notas no braço. Os
 
 - **Ordem:** sequencial ou aleatória. Na aleatória, o mesmo item nunca se repete em seguida.
 - **Trocar por:** a cada N loops ou a cada N batidas.
-- **Iniciar treino:** liga o metrônomo e mostra na tela o item atual e o próximo.
+- **Iniciar treino:** liga o metrônomo e mostra lado a lado dois cartões: **Agora**, em destaque, e **Próximo**, ligados por uma seta com uma barra que enche até a troca. Nos acordes, os dois cartões trazem o diagrama e a cifra.
 
 As trocas seguem o metrônomo, inclusive o **Aumentar BPM**. Parar o metrônomo, ou atingir o BPM de **Parar em**, também encerra o treino.
 
@@ -46,7 +46,7 @@ Treine a localização de uma nota em todo o braço:
 1. Escolha a nota, por exemplo C. O braço mostra todas as posições dela, da corda solta à casa 22.
 2. Defina a ordem e a troca, e clique em **Iniciar treino**.
 
-Durante o treino, a posição a tocar agora fica destacada em amarelo no braço, e as demais posições da nota continuam visíveis. A tela informa a corda e a casa (por exemplo, "Corda 5 (A), casa 3") e a próxima posição. Na ordem sequencial, as posições seguem da casa mais baixa para a mais alta e, na mesma casa, da corda mais grave para a mais aguda. Em telas pequenas, o braço rola sozinho até a posição destacada.
+Durante o treino, a posição a tocar agora fica destacada em amarelo no braço, e as demais posições da nota continuam visíveis. Os cartões mostram a casa e a corda (por exemplo, "Casa 3 — Corda 5 (A)") da posição atual e da próxima, e a próxima posição também aparece no braço com um anel tracejado. Na ordem sequencial, as posições seguem da casa mais baixa para a mais alta e, na mesma casa, da corda mais grave para a mais aguda. Em telas pequenas, o braço rola sozinho até a posição destacada.
 
 ### Metrônomo
 

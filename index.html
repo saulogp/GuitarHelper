@@ -137,17 +137,30 @@
       </div>
 
       <div class="training-stage" id="training-stage" hidden>
-        <div class="training-current">
-          <div class="training-now" aria-live="polite" aria-atomic="true">
-            <small>Agora</small>
-            <strong id="training-current-name"></strong>
-            <span class="training-detail" id="training-current-detail"></span>
+        <div class="training-flow">
+          <div class="training-card is-now" aria-live="polite" aria-atomic="true">
+            <div class="training-card-text">
+              <small class="training-label">Agora <span id="training-current-label"></span></small>
+              <strong class="training-name" id="training-current-name"></strong>
+              <span class="training-detail" id="training-current-detail"></span>
+            </div>
+            <div class="training-diagram" id="training-diagram"></div>
           </div>
-          <div id="training-diagram"></div>
+          <div class="training-arrow" aria-hidden="true">
+            <span class="training-arrow-icon">➜</span>
+            <span class="training-progress"><span class="training-progress-bar" id="training-progress-bar"></span></span>
+          </div>
+          <div class="training-card is-next">
+            <div class="training-card-text">
+              <small class="training-label">Próximo <span id="training-next-label"></span></small>
+              <strong class="training-name" id="training-next-name"></strong>
+              <span class="training-detail" id="training-next-detail"></span>
+            </div>
+            <div class="training-diagram" id="training-next-diagram"></div>
+          </div>
         </div>
         <div class="training-info">
           <p class="training-countdown" id="training-countdown"></p>
-          <p class="training-next">Próximo: <strong id="training-next-name"></strong> <span id="training-next-detail"></span></p>
           <button type="button" class="training-toggle is-stop" id="training-stop">Parar treino</button>
         </div>
       </div>
@@ -166,6 +179,7 @@
         <li><span class="swatch swatch-tonic"></span><span id="legend-tonic">Tônica</span></li>
         <li><span class="swatch swatch-scale"></span><span id="legend-scale">Nota da escala</span></li>
         <li id="legend-target" hidden><span class="swatch swatch-target"></span>Tocar agora</li>
+        <li id="legend-next" hidden><span class="swatch swatch-next"></span>Próxima</li>
         <li><span class="swatch swatch-selected"></span>Selecionada por você</li>
         <li id="legend-muted" hidden><span class="swatch-muted" aria-hidden="true">×</span>Corda abafada</li>
       </ul>

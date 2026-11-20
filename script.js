@@ -156,17 +156,22 @@ const el = {
   trainingBeatsField: document.getElementById('training-beats-field'),
   trainingStart: document.getElementById('training-start'),
   trainingStop: document.getElementById('training-stop'),
+  trainingCurrentLabel: document.getElementById('training-current-label'),
   trainingCurrentName: document.getElementById('training-current-name'),
   trainingCurrentDetail: document.getElementById('training-current-detail'),
   trainingDiagram: document.getElementById('training-diagram'),
   trainingCountdown: document.getElementById('training-countdown'),
+  trainingNextLabel: document.getElementById('training-next-label'),
   trainingNextName: document.getElementById('training-next-name'),
   trainingNextDetail: document.getElementById('training-next-detail'),
+  trainingNextDiagram: document.getElementById('training-next-diagram'),
+  trainingProgressBar: document.getElementById('training-progress-bar'),
   voicingsPanel: document.getElementById('voicings-panel'),
   voicings: document.getElementById('voicings'),
   legendTonic: document.getElementById('legend-tonic'),
   legendScale: document.getElementById('legend-scale'),
   legendTarget: document.getElementById('legend-target'),
+  legendNext: document.getElementById('legend-next'),
   legendMuted: document.getElementById('legend-muted'),
   metronomeToggle: document.getElementById('metronome-toggle'),
   bpmNumber: document.getElementById('bpm-number'),
@@ -530,6 +535,7 @@ function renderNeck() {
   const selected = new Set(state.selected.map(({ string, fret }) => `${string}-${fret}`));
   const voicing = usesChords() ? voicings[state.voicing] : undefined;
   const target = trainingTarget();
+  const upcoming = trainingTarget('next');
 
   positions.forEach((frets, string) => {
     frets.forEach(({ button, note: noteNode }, fret) => {
@@ -539,13 +545,15 @@ function renderNeck() {
       const showTonic = note.isRoot && isVisible;
       const isMuted = fret === 0 && voicing?.frets[string] === null && !isSelected;
       const isTarget = target?.string === string && target?.fret === fret;
-      const hint = isMuted ? ' (não tocar nesta forma)' : isTarget ? ' (tocar agora)' : '';
+      const isNext = !isTarget && upcoming?.string === string && upcoming?.fret === fret;
+      const hint = isMuted ? ' (não tocar nesta forma)' : isTarget ? ' (tocar agora)' : isNext ? ' (próxima)' : '';
 
       button.classList.toggle('is-scale', isVisible);
       button.classList.toggle('is-muted', isMuted);
       button.classList.toggle('is-tonic', showTonic);
       button.classList.toggle('is-selected', isSelected);
       button.classList.toggle('is-target', isTarget);
+      button.classList.toggle('is-next', isNext);
       button.setAttribute('aria-pressed', isSelected);
       button.setAttribute('aria-label', `${positionLabel({ string, fret })}: ${textName(note.name)}${hint}`);
       noteNode.textContent = isMuted ? '×' : state.notation === 'degrees' ? note.degree : textName(note.name);
@@ -736,19 +744,31 @@ function trainingDetail(kind, text) {
   return kind.detailIsTab ? createElement('code', '', text) : document.createTextNode(text);
 }
 
+// Preenche um cartão do treino (Agora ou Próximo) com o item indicado.
+function renderTrainingCard(kind, item, { label, name, detail, diagram }) {
+  const info = kind.describe(item);
+  const drawing = kind.diagram?.(item);
+  label.textContent = info.label ? `· ${info.label}` : '';
+  name.textContent = info.name;
+  detail.replaceChildren(trainingDetail(kind, info.detail));
+  diagram.replaceChildren(...(drawing ? [drawing] : []));
+  diagram.hidden = !drawing;
+}
+
 function renderTrainingStage() {
   const kind = trainingKind();
-  const current = kind.describe(training.items[training.index]);
-  const next = kind.describe(training.items[training.next]);
-  const diagram = kind.diagram?.();
-
-  el.trainingCurrentName.textContent = current.name;
-  el.trainingCurrentDetail.replaceChildren(trainingDetail(kind, current.detail));
-  el.trainingDiagram.replaceChildren(...(diagram ? [diagram] : []));
-  el.trainingDiagram.hidden = !diagram;
-  // Quando todos os itens têm o mesmo nome (a nota estudada), basta mostrar o detalhe.
-  el.trainingNextName.textContent = kind.sameName ? '' : next.name;
-  el.trainingNextDetail.replaceChildren(trainingDetail(kind, next.detail));
+  renderTrainingCard(kind, training.items[training.index], {
+    label: el.trainingCurrentLabel,
+    name: el.trainingCurrentName,
+    detail: el.trainingCurrentDetail,
+    diagram: el.trainingDiagram,
+  });
+  renderTrainingCard(kind, training.items[training.next], {
+    label: el.trainingNextLabel,
+    name: el.trainingNextName,
+    detail: el.trainingNextDetail,
+    diagram: el.trainingNextDiagram,
+  });
 }
 
 function renderTraining() {
@@ -804,6 +824,7 @@ function render() {
   el.legendScale.textContent = isChordMode ? 'Nota do acorde' : 'Nota da escala';
   el.legendScale.parentElement.hidden = view === 'notes';
   el.legendTarget.hidden = !trainingTarget();
+  el.legendNext.hidden = !trainingTarget('next');
   el.legendMuted.hidden = !isChordMode;
 
   renderRootOptions();
@@ -978,7 +999,10 @@ const TRAINING_KINDS = {
     items: () => state.trainingItems.map((item) => ({ ...item })),
     key: ({ root, chord, voicing }) => `${root}-${chord}-${voicing}`,
     describe: (item) => ({ name: trainingItemName(item), detail: trainingItemTab(item) }),
-    diagram: () => chordDiagram(voicings[state.voicing]),
+    diagram: ({ root, chord, voicing }) => {
+      const shape = findVoicings(root, CHORDS.get(chord))[voicing];
+      return shape ? chordDiagram(shape) : null;
+    },
     apply({ root, chord, voicing }) {
       state.root = root;
       state.chord = chord;
@@ -989,10 +1013,14 @@ const TRAINING_KINDS = {
   },
   notes: {
     minItems: 2,
-    sameName: true,
     items: () => notePositions(state.root),
     key: ({ string, fret }) => `${string}-${fret}`,
-    describe: (position) => ({ name: textName(state.root), detail: positionLabel(position) }),
+    // A nota estudada não muda: ela vai no rótulo, e a posição ganha o destaque.
+    describe: ({ string, fret }) => ({
+      label: textName(state.root),
+      name: fret === 0 ? 'Corda solta' : `Casa ${fret}`,
+      detail: `Corda ${string + 1} (${textName(STRINGS[string].name)})`,
+    }),
     // A nota estudada não muda; a posição atual é destacada no braço (trainingTarget).
     apply() {},
   },
@@ -1002,10 +1030,10 @@ function trainingKind() {
   return TRAINING_KINDS[state.trainingKind];
 }
 
-// Posição a tocar agora no treino de notas, ou null.
-function trainingTarget() {
+// Posição a tocar agora (ou a próxima, com which = 'next') no treino de notas, ou null.
+function trainingTarget(which = 'now') {
   if (!training.running || state.trainingKind !== 'notes') return null;
-  return training.items[training.index];
+  return training.items[which === 'next' ? training.next : training.index];
 }
 
 function pickNextIndex(current) {
@@ -1043,6 +1071,8 @@ function countTrainingBeat() {
     showTrainingItem(training.next);
   }
   el.trainingCountdown.textContent = trainingCountdownText();
+  // A barra entre Agora e Próximo enche até a troca.
+  el.trainingProgressBar.style.width = `${(training.beat / beatsPerItem) * 100}%`;
 }
 
 function startTraining() {
@@ -1050,6 +1080,7 @@ function startTraining() {
   training.running = true;
   training.beat = 0;
   el.trainingCountdown.textContent = '';
+  el.trainingProgressBar.style.width = '0%';
   showTrainingItem(state.trainingOrder === 'random' ? Math.floor(Math.random() * training.items.length) : 0);
 
   // Reinicia o metrônomo para a contagem começar no primeiro tempo do compasso.

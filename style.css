@@ -449,27 +449,99 @@ select:focus-visible,
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px 40px;
+  gap: 16px 32px;
 }
 
-.training-current {
+/* Agora ➜ Próximo: dois cartões lado a lado, ligados por uma seta que enche até a troca. */
+.training-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.training-card {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  border: 2px solid var(--line);
+  background: var(--surface);
+  min-width: 0;
 }
 
-.training-now {
+.training-card-text {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
-.training-now small { color: var(--muted); }
+.training-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
 
-.training-now strong {
-  font-size: 3rem;
+.training-name {
   line-height: 1.1;
   letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.training-card.is-now {
+  border-color: var(--target);
+  background: color-mix(in srgb, var(--target) 16%, var(--surface));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--target) 25%, transparent);
+}
+
+.training-card.is-now .training-label { color: var(--ink); }
+.training-card.is-now .training-name { font-size: 3rem; }
+
+.training-card.is-next {
+  border-style: dashed;
+  background: var(--page);
+}
+
+.training-card.is-next .training-name { font-size: 1.9rem; color: var(--ink); }
+.training-card.is-next .training-detail { color: var(--muted); }
+.training-card.is-next .diagram { width: 76px; opacity: 0.85; }
+
+.training-arrow {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 56px;
+}
+
+.training-arrow-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--teal);
+}
+
+.training-progress {
+  display: block;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.training-progress-bar {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--teal);
+  transition: width 0.15s linear;
 }
 
 .training-info {
@@ -487,8 +559,6 @@ select:focus-visible,
   color: var(--teal);
   font-variant-numeric: tabular-nums;
 }
-
-.training-next { margin: 0; }
 
 /* Resumo da escala */
 .scale-summary {
@@ -692,6 +762,12 @@ select:focus-visible,
   50% { box-shadow: 0 0 0 3px var(--neck-panel), 0 0 0 9px rgb(245 184 46 / 0.35); }
 }
 
+/* Treino de notas: a próxima posição, com anel tracejado para já mirar a mão */
+.pos.is-next .note {
+  outline: 2px dashed var(--target);
+  outline-offset: 3px;
+}
+
 .pos:focus-visible { outline: none; }
 
 .pos:not(.is-scale, .is-selected, .is-muted):focus-visible .note {
@@ -748,6 +824,12 @@ select:focus-visible,
 .swatch-tonic { background: var(--accent); }
 .swatch-scale { background: var(--note-light); }
 .swatch-target { background: var(--target); }
+.swatch-next {
+  background: var(--accent);
+  outline: 2px dashed var(--target);
+  outline-offset: 2px;
+  margin: 0 4px;
+}
 .swatch-selected {
   background: #fff;
   box-shadow: 0 0 0 2px var(--teal);
@@ -954,6 +1036,13 @@ select:focus-visible,
   .training { padding: 14px; }
   .training-heading { width: 100%; justify-content: space-between; }
   .training-options .training-toggle { width: 100%; margin-left: 0; }
+  .training-flow { flex-direction: column; width: 100%; }
+  .training-card { justify-content: space-between; }
+  .training-card.is-now .training-name { font-size: 2.4rem; }
+  .training-card.is-next .training-name { font-size: 1.5rem; }
+  .training-arrow { flex-direction: row; width: 100%; }
+  .training-arrow-icon { transform: rotate(90deg); }
+  .training-info { width: 100%; }
   .control { width: 100%; }
   select { width: 100%; }
   .segmented label { flex: 1; }
