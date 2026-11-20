@@ -1,6 +1,6 @@
 # Guitar Helper
 
-Braço de guitarra interativo para visualizar escalas e acordes, descobrir notas e treinar trocas de acordes com metrônomo. Feito com HTML, CSS e JavaScript puros, sem dependências.
+Braço de guitarra interativo para visualizar escalas e acordes, descobrir notas e treinar, com metrônomo, trocas de acordes e a localização das notas no braço. Feito com HTML, CSS e JavaScript puros, sem dependências.
 
 ![Aba Acordes mostrando a forma aberta de Am no braço da guitarra, com o metrônomo acima e as variações do acorde abaixo](screenshot.png)
 
@@ -24,14 +24,29 @@ Cada acorde lista variações tocáveis, com diagrama e cifra (`x-3-2-0-1-0`). C
 
 ### Treino
 
-Treine trocas de acordes em uma sequência montada por você:
+Escolha em **Treinar** o tipo de treino: troca de acordes ou notas no braço. Os dois funcionam do mesmo jeito:
+
+- **Ordem:** sequencial ou aleatória. Na aleatória, o mesmo item nunca se repete em seguida.
+- **Trocar por:** a cada N loops ou a cada N batidas.
+- **Iniciar treino:** liga o metrônomo e mostra na tela o item atual e o próximo.
+
+As trocas seguem o metrônomo, inclusive o **Aumentar BPM**. Parar o metrônomo, ou atingir o BPM de **Parar em**, também encerra o treino.
+
+#### Troca de acordes
 
 1. Escolha a nota, o acorde e a variação, e clique em **Adicionar**. A sequência precisa de pelo menos 2 acordes.
-2. Defina a ordem: sequencial ou aleatória.
-3. Defina a troca: a cada N loops ou a cada N batidas.
-4. Clique em **Iniciar treino**.
+2. Defina a ordem e a troca, e clique em **Iniciar treino**.
 
-O acorde atual e o próximo aparecem na tela, e o braço mostra a forma a tocar. As trocas seguem o metrônomo, que liga ao iniciar o treino. Parar o metrônomo também encerra o treino.
+O braço mostra a forma a tocar, com o diagrama e a cifra do acorde atual.
+
+#### Notas no braço
+
+Treine a localização de uma nota em todo o braço:
+
+1. Escolha a nota, por exemplo C. O braço mostra todas as posições dela, da corda solta à casa 22.
+2. Defina a ordem e a troca, e clique em **Iniciar treino**.
+
+Durante o treino, a posição a tocar agora fica destacada em amarelo no braço, e as demais posições da nota continuam visíveis. A tela informa a corda e a casa (por exemplo, "Corda 5 (A), casa 3") e a próxima posição. Na ordem sequencial, as posições seguem da casa mais baixa para a mais alta e, na mesma casa, da corda mais grave para a mais aguda. Em telas pequenas, o braço rola sozinho até a posição destacada.
 
 ### Metrônomo
 

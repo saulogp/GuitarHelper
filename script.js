@@ -122,6 +122,7 @@ const state = {
   rampStep: 10,
   rampLimitEnabled: false,
   rampLimit: 160, // ao terminar o ciclo neste BPM, o metrônomo para
+  trainingKind: 'chords', // 'chords' (troca de acordes) ou 'notes' (notas no braço)
   trainingItems: [], // [{ root, chord, voicing }], na ordem em que foram adicionados
   trainingOrder: 'sequence', // 'sequence' ou 'random'
   trainingUnit: 'loops', // 'loops' ou 'beats'
@@ -138,9 +139,14 @@ const el = {
   chordSelect: document.getElementById('chord-select'),
   chordControl: document.getElementById('chord-control'),
   rootControl: document.getElementById('root-control'),
+  trainingKindControl: document.getElementById('training-kind-control'),
   training: document.getElementById('training'),
   trainingSetup: document.getElementById('training-setup'),
   trainingStage: document.getElementById('training-stage'),
+  trainingChords: document.getElementById('training-chords'),
+  trainingNotes: document.getElementById('training-notes'),
+  trainingNotesTitle: document.getElementById('training-notes-title'),
+  trainingNotesInfo: document.getElementById('training-notes-info'),
   trainingAdd: document.getElementById('training-add'),
   trainingEmpty: document.getElementById('training-empty'),
   trainingList: document.getElementById('training-list'),
@@ -151,14 +157,16 @@ const el = {
   trainingStart: document.getElementById('training-start'),
   trainingStop: document.getElementById('training-stop'),
   trainingCurrentName: document.getElementById('training-current-name'),
-  trainingCurrentTab: document.getElementById('training-current-tab'),
+  trainingCurrentDetail: document.getElementById('training-current-detail'),
   trainingDiagram: document.getElementById('training-diagram'),
   trainingCountdown: document.getElementById('training-countdown'),
   trainingNextName: document.getElementById('training-next-name'),
-  trainingNextTab: document.getElementById('training-next-tab'),
+  trainingNextDetail: document.getElementById('training-next-detail'),
   voicingsPanel: document.getElementById('voicings-panel'),
   voicings: document.getElementById('voicings'),
+  legendTonic: document.getElementById('legend-tonic'),
   legendScale: document.getElementById('legend-scale'),
+  legendTarget: document.getElementById('legend-target'),
   legendMuted: document.getElementById('legend-muted'),
   metronomeToggle: document.getElementById('metronome-toggle'),
   bpmNumber: document.getElementById('bpm-number'),
@@ -185,14 +193,22 @@ let voicings = []; // formas do acorde atual: [{ frets, bassString }]
 
 const training = {
   running: false,
-  index: 0, // acorde atual em state.trainingItems
+  items: [], // itens do treino em andamento: acordes ou posições, conforme state.trainingKind
+  index: 0, // item atual em training.items
   next: 0,
   beat: 0, // batida atual desde a última troca
   metronomeWasRunning: false,
 };
 
+// O que o braço mostra: 'scales', 'chords' ou 'notes'. A aba Treino mostra acordes
+// ou só a nota escolhida, conforme o tipo de treino.
+function currentView() {
+  if (state.mode !== 'training') return state.mode;
+  return state.trainingKind;
+}
+
 function usesChords() {
-  return state.mode !== 'scales';
+  return currentView() === 'chords';
 }
 
 /* Teoria musical */
@@ -234,7 +250,9 @@ function spellDegree(root, degree) {
 
 function buildScaleNotes() {
   const notes = new Map();
-  const { degrees } = usesChords() ? CHORDS.get(state.chord) : SCALES.get(state.scale);
+  const view = currentView();
+  const scaleId = view === 'notes' ? 'note' : state.scale;
+  const { degrees } = view === 'chords' ? CHORDS.get(state.chord) : SCALES.get(scaleId);
   for (const degree of degrees) {
     const { pc, name } = spellDegree(state.root, degree);
     notes.set(pc, { name, degree });
@@ -374,8 +392,8 @@ function scaleTitle() {
     const chord = CHORDS.get(state.chord);
     return `${root}${chord.symbol} (${chord.label.toLowerCase()})`;
   }
+  if (currentView() === 'notes' || state.scale === 'note') return `Todas as notas ${root}`;
   if (state.scale === 'none') return 'Sem escala';
-  if (state.scale === 'note') return `Todas as notas ${root}`;
   return `${root} ${SCALES.get(state.scale).label.replace(/ \(.*\)/, '').toLowerCase()}`;
 }
 
@@ -392,7 +410,8 @@ function enharmonic(note) {
 
 function relationText(note) {
   const root = textName(state.root);
-  if (state.mode === 'scales' && (state.scale === 'none' || state.scale === 'note')) {
+  const view = currentView();
+  if (view === 'notes' || (view === 'scales' && (state.scale === 'none' || state.scale === 'note'))) {
     return note.isRoot ? `Mesma nota que ${root}` : `Intervalo ${note.degree} a partir de ${root}`;
   }
   return note.inScale ? `Grau ${note.degree} em ${scaleTitle()}` : `Fora de ${scaleTitle()}`;
@@ -510,6 +529,7 @@ function renderSummary() {
 function renderNeck() {
   const selected = new Set(state.selected.map(({ string, fret }) => `${string}-${fret}`));
   const voicing = usesChords() ? voicings[state.voicing] : undefined;
+  const target = trainingTarget();
 
   positions.forEach((frets, string) => {
     frets.forEach(({ button, note: noteNode }, fret) => {
@@ -518,18 +538,34 @@ function renderNeck() {
       const isVisible = voicing ? voicing.frets[string] === fret : note.inScale;
       const showTonic = note.isRoot && isVisible;
       const isMuted = fret === 0 && voicing?.frets[string] === null && !isSelected;
+      const isTarget = target?.string === string && target?.fret === fret;
+      const hint = isMuted ? ' (não tocar nesta forma)' : isTarget ? ' (tocar agora)' : '';
 
       button.classList.toggle('is-scale', isVisible);
       button.classList.toggle('is-muted', isMuted);
       button.classList.toggle('is-tonic', showTonic);
       button.classList.toggle('is-selected', isSelected);
+      button.classList.toggle('is-target', isTarget);
       button.setAttribute('aria-pressed', isSelected);
-      button.setAttribute(
-        'aria-label',
-        `${positionLabel({ string, fret })}: ${textName(note.name)}${isMuted ? ' (não tocar nesta forma)' : ''}`,
-      );
+      button.setAttribute('aria-label', `${positionLabel({ string, fret })}: ${textName(note.name)}${hint}`);
       noteNode.textContent = isMuted ? '×' : state.notation === 'degrees' ? note.degree : textName(note.name);
     });
+  });
+
+  if (target) revealPosition(target);
+}
+
+// Em telas estreitas o braço rola na horizontal: traz a posição para a área visível.
+function revealPosition({ string, fret }) {
+  const scroller = el.neck.parentElement;
+  const box = positions[string][fret].button.getBoundingClientRect();
+  const view = scroller.getBoundingClientRect();
+  if (box.left >= view.left && box.right <= view.right) return;
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  scroller.scrollBy({
+    left: box.left + box.width / 2 - (view.left + view.width / 2),
+    behavior: reduceMotion ? 'auto' : 'smooth',
   });
 }
 
@@ -652,13 +688,10 @@ function trainingItemTab({ root, chord, voicing }) {
   return tabText(findVoicings(root, CHORDS.get(chord))[voicing]);
 }
 
-function renderTrainingSetup() {
+function renderChordTrainingSetup() {
   const items = state.trainingItems;
   el.trainingAdd.textContent = `Adicionar ${trainingItemName(state)}`;
-  el.trainingEmpty.hidden = items.length >= 2;
-  el.trainingStart.disabled = items.length < 2;
-  el.trainingLoopsField.hidden = state.trainingUnit !== 'loops';
-  el.trainingBeatsField.hidden = state.trainingUnit !== 'beats';
+  el.trainingEmpty.hidden = items.length >= TRAINING_KINDS.chords.minItems;
 
   el.trainingList.replaceChildren(
     ...items.map((item, index) => {
@@ -677,13 +710,45 @@ function renderTrainingSetup() {
   );
 }
 
+function renderNoteTrainingSetup(count) {
+  const root = textName(state.root);
+  el.trainingNotesTitle.textContent = `Posições de ${root}`;
+  el.trainingNotesInfo.textContent = `O braço mostra as ${count} posições de ${root}. Durante o treino, `
+    + 'a posição a tocar agora fica destacada e muda conforme o metrônomo. '
+    + 'Na ordem sequencial, as posições seguem da casa mais baixa para a mais alta.';
+}
+
+function renderTrainingSetup() {
+  const kind = trainingKind();
+  const count = kind.items().length;
+  el.trainingChords.hidden = state.trainingKind !== 'chords';
+  el.trainingNotes.hidden = state.trainingKind !== 'notes';
+  el.trainingStart.disabled = count < kind.minItems;
+  el.trainingLoopsField.hidden = state.trainingUnit !== 'loops';
+  el.trainingBeatsField.hidden = state.trainingUnit !== 'beats';
+
+  if (state.trainingKind === 'chords') renderChordTrainingSetup();
+  else renderNoteTrainingSetup(count);
+}
+
+// Cifras aparecem em fonte monoespaçada; posições, em texto normal.
+function trainingDetail(kind, text) {
+  return kind.detailIsTab ? createElement('code', '', text) : document.createTextNode(text);
+}
+
 function renderTrainingStage() {
-  const next = state.trainingItems[training.next];
-  el.trainingCurrentName.textContent = trainingItemName(state);
-  el.trainingCurrentTab.textContent = tabText(voicings[state.voicing]);
-  el.trainingDiagram.replaceChildren(chordDiagram(voicings[state.voicing]));
-  el.trainingNextName.textContent = trainingItemName(next);
-  el.trainingNextTab.textContent = trainingItemTab(next);
+  const kind = trainingKind();
+  const current = kind.describe(training.items[training.index]);
+  const next = kind.describe(training.items[training.next]);
+  const diagram = kind.diagram?.();
+
+  el.trainingCurrentName.textContent = current.name;
+  el.trainingCurrentDetail.replaceChildren(trainingDetail(kind, current.detail));
+  el.trainingDiagram.replaceChildren(...(diagram ? [diagram] : []));
+  el.trainingDiagram.hidden = !diagram;
+  // Quando todos os itens têm o mesmo nome (a nota estudada), basta mostrar o detalhe.
+  el.trainingNextName.textContent = kind.sameName ? '' : next.name;
+  el.trainingNextDetail.replaceChildren(trainingDetail(kind, next.detail));
 }
 
 function renderTraining() {
@@ -726,14 +791,19 @@ function renderSelection() {
 }
 
 function render() {
-  const isChordMode = usesChords();
+  const view = currentView();
+  const isChordMode = view === 'chords';
   scaleNotes = buildScaleNotes();
   voicings = isChordMode ? findVoicings(state.root, CHORDS.get(state.chord)) : [];
 
-  el.scaleControl.hidden = isChordMode;
+  el.scaleControl.hidden = view !== 'scales';
   el.chordControl.hidden = !isChordMode || training.running;
   el.rootControl.hidden = training.running;
+  el.trainingKindControl.hidden = state.mode !== 'training' || training.running;
+  el.legendTonic.textContent = view === 'notes' ? 'Nota escolhida' : 'Tônica';
   el.legendScale.textContent = isChordMode ? 'Nota do acorde' : 'Nota da escala';
+  el.legendScale.parentElement.hidden = view === 'notes';
+  el.legendTarget.hidden = !trainingTarget();
   el.legendMuted.hidden = !isChordMode;
 
   renderRootOptions();
@@ -884,30 +954,75 @@ function readNumberField(input, current) {
   return value;
 }
 
-/* Treino de troca de acordes */
+/* Treino */
 
-function isSameChord(a, b) {
-  return a.root === b.root && a.chord === b.chord && a.voicing === b.voicing;
+// Todas as posições de uma nota, da casa mais baixa para a mais alta e, na mesma casa,
+// da corda mais grave para a mais aguda.
+function notePositions(root) {
+  const pc = pitchClass(root);
+  const found = [];
+  for (let fret = 0; fret <= FRET_COUNT; fret++) {
+    for (let string = STRINGS.length - 1; string >= 0; string--) {
+      if ((STRINGS[string].pc + fret) % 12 === pc) found.push({ string, fret });
+    }
+  }
+  return found;
+}
+
+// Cada tipo de treino diz quais itens percorrer e como mostrá-los. A contagem das
+// batidas, a ordem e a ligação com o metrônomo são as mesmas para todos.
+const TRAINING_KINDS = {
+  chords: {
+    minItems: 2,
+    detailIsTab: true,
+    items: () => state.trainingItems.map((item) => ({ ...item })),
+    key: ({ root, chord, voicing }) => `${root}-${chord}-${voicing}`,
+    describe: (item) => ({ name: trainingItemName(item), detail: trainingItemTab(item) }),
+    diagram: () => chordDiagram(voicings[state.voicing]),
+    apply({ root, chord, voicing }) {
+      state.root = root;
+      state.chord = chord;
+      state.voicing = voicing;
+      el.rootOptions.querySelector(`input[value="${root}"]`).checked = true;
+      el.chordSelect.value = chord;
+    },
+  },
+  notes: {
+    minItems: 2,
+    sameName: true,
+    items: () => notePositions(state.root),
+    key: ({ string, fret }) => `${string}-${fret}`,
+    describe: (position) => ({ name: textName(state.root), detail: positionLabel(position) }),
+    // A nota estudada não muda; a posição atual é destacada no braço (trainingTarget).
+    apply() {},
+  },
+};
+
+function trainingKind() {
+  return TRAINING_KINDS[state.trainingKind];
+}
+
+// Posição a tocar agora no treino de notas, ou null.
+function trainingTarget() {
+  if (!training.running || state.trainingKind !== 'notes') return null;
+  return training.items[training.index];
 }
 
 function pickNextIndex(current) {
-  const items = state.trainingItems;
+  const { items } = training;
   if (state.trainingOrder === 'sequence') return (current + 1) % items.length;
 
-  // Na ordem aleatória, sempre sorteia um acorde diferente do atual.
-  const options = items.flatMap((item, index) => (isSameChord(item, items[current]) ? [] : [index]));
+  // Na ordem aleatória, sempre sorteia um item diferente do atual.
+  const { key } = trainingKind();
+  const currentKey = key(items[current]);
+  const options = items.flatMap((item, index) => (key(item) === currentKey ? [] : [index]));
   return options.length ? options[Math.floor(Math.random() * options.length)] : current;
 }
 
-function showTrainingChord(index) {
-  const { root, chord, voicing } = state.trainingItems[index];
+function showTrainingItem(index) {
   training.index = index;
   training.next = pickNextIndex(index);
-  state.root = root;
-  state.chord = chord;
-  state.voicing = voicing;
-  el.rootOptions.querySelector(`input[value="${root}"]`).checked = true;
-  el.chordSelect.value = chord;
+  trainingKind().apply(training.items[index]);
   render();
 }
 
@@ -921,21 +1036,21 @@ function trainingCountdownText() {
 // Chamada a cada batida do metrônomo. O treino começa no primeiro tempo do compasso,
 // então a troca por loop sempre cai em um primeiro tempo.
 function countTrainingBeat() {
-  const beatsPerChord = state.trainingUnit === 'beats' ? state.trainingBeats : state.trainingLoops * BEATS_PER_BAR;
+  const beatsPerItem = state.trainingUnit === 'beats' ? state.trainingBeats : state.trainingLoops * BEATS_PER_BAR;
   training.beat++;
-  if (training.beat > beatsPerChord) {
+  if (training.beat > beatsPerItem) {
     training.beat = 1;
-    showTrainingChord(training.next);
+    showTrainingItem(training.next);
   }
   el.trainingCountdown.textContent = trainingCountdownText();
 }
 
 function startTraining() {
-  const count = state.trainingItems.length;
+  training.items = trainingKind().items();
   training.running = true;
   training.beat = 0;
   el.trainingCountdown.textContent = '';
-  showTrainingChord(state.trainingOrder === 'random' ? Math.floor(Math.random() * count) : 0);
+  showTrainingItem(state.trainingOrder === 'random' ? Math.floor(Math.random() * training.items.length) : 0);
 
   // Reinicia o metrônomo para a contagem começar no primeiro tempo do compasso.
   training.metronomeWasRunning = metronome.timer !== null;
@@ -1002,6 +1117,14 @@ document.querySelectorAll('input[name="mode"]').forEach((input) => {
     if (training.running) stopTraining();
     state.mode = input.value;
     if (state.mode === 'training' && state.voicing < 0) state.voicing = 0;
+    render();
+  });
+});
+
+document.querySelectorAll('input[name="training-kind"]').forEach((input) => {
+  input.addEventListener('change', () => {
+    if (training.running) stopTraining();
+    state.trainingKind = input.value;
     render();
   });
 });

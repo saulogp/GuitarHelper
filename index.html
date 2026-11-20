@@ -23,6 +23,14 @@
         </div>
       </fieldset>
 
+      <fieldset class="control" id="training-kind-control" hidden>
+        <legend>Treinar</legend>
+        <div class="segmented">
+          <label><input type="radio" name="training-kind" value="chords" checked><span>Troca de acordes</span></label>
+          <label><input type="radio" name="training-kind" value="notes"><span>Notas no braço</span></label>
+        </div>
+      </fieldset>
+
       <fieldset class="control control-root" id="root-control">
         <legend>Nota</legend>
         <div class="root-options" id="root-options"></div>
@@ -80,15 +88,22 @@
       </div>
     </section>
 
-    <section class="training" id="training" aria-label="Treino de troca de acordes" hidden>
+    <section class="training" id="training" aria-label="Treino" hidden>
       <div class="training-setup" id="training-setup">
-        <div class="training-sequence">
+        <div class="training-sequence" id="training-chords">
           <div class="training-heading">
             <h2>Sequência do treino</h2>
             <button type="button" class="training-add" id="training-add"></button>
           </div>
           <p class="empty" id="training-empty">Escolha a nota, o acorde e a variação (abaixo do braço) e adicione pelo menos 2 acordes.</p>
           <ol class="training-list" id="training-list"></ol>
+        </div>
+
+        <div class="training-sequence" id="training-notes" hidden>
+          <div class="training-heading">
+            <h2 id="training-notes-title"></h2>
+          </div>
+          <p class="empty" id="training-notes-info"></p>
         </div>
 
         <div class="training-options">
@@ -123,16 +138,16 @@
 
       <div class="training-stage" id="training-stage" hidden>
         <div class="training-current">
-          <div class="training-now">
+          <div class="training-now" aria-live="polite" aria-atomic="true">
             <small>Agora</small>
-            <strong id="training-current-name" aria-live="polite"></strong>
-            <code id="training-current-tab"></code>
+            <strong id="training-current-name"></strong>
+            <span class="training-detail" id="training-current-detail"></span>
           </div>
           <div id="training-diagram"></div>
         </div>
         <div class="training-info">
           <p class="training-countdown" id="training-countdown"></p>
-          <p class="training-next">Próximo: <strong id="training-next-name"></strong> <code id="training-next-tab"></code></p>
+          <p class="training-next">Próximo: <strong id="training-next-name"></strong> <span id="training-next-detail"></span></p>
           <button type="button" class="training-toggle is-stop" id="training-stop">Parar treino</button>
         </div>
       </div>
@@ -148,8 +163,9 @@
         <div class="neck" id="neck" role="group" aria-label="Casas do braço. Use as setas para navegar e Enter para selecionar."></div>
       </div>
       <ul class="legend">
-        <li><span class="swatch swatch-tonic"></span>Tônica</li>
+        <li><span class="swatch swatch-tonic"></span><span id="legend-tonic">Tônica</span></li>
         <li><span class="swatch swatch-scale"></span><span id="legend-scale">Nota da escala</span></li>
+        <li id="legend-target" hidden><span class="swatch swatch-target"></span>Tocar agora</li>
         <li><span class="swatch swatch-selected"></span>Selecionada por você</li>
         <li id="legend-muted" hidden><span class="swatch-muted" aria-hidden="true">×</span>Corda abafada</li>
       </ul>

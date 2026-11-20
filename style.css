@@ -6,6 +6,7 @@
   --line: #dcd7cd;
   --accent: #c63d17;
   --teal: #0f8f83;
+  --target: #f5b82e;
   --neck-panel: #1c1a18;
   --wood: #35271f;
   --fret: #8f8b83;
@@ -305,7 +306,7 @@ select:focus-visible,
   color: var(--teal);
 }
 
-/* Treino de troca de acordes */
+/* Treino */
 .training {
   margin-top: 12px;
   padding: 16px 20px;
@@ -672,6 +673,25 @@ select:focus-visible,
   color: #fff;
 }
 
+/* Treino de notas: a posição a tocar agora */
+.pos.is-target { z-index: 1; }
+
+.pos.is-target .note {
+  width: 36px;
+  height: 36px;
+  background: var(--target);
+  color: var(--ink);
+  font-size: 0.85rem;
+  opacity: 1;
+  transform: none;
+  box-shadow: 0 0 0 3px var(--neck-panel), 0 0 0 5px var(--target);
+  animation: target-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes target-pulse {
+  50% { box-shadow: 0 0 0 3px var(--neck-panel), 0 0 0 9px rgb(245 184 46 / 0.35); }
+}
+
 .pos:focus-visible { outline: none; }
 
 .pos:not(.is-scale, .is-selected, .is-muted):focus-visible .note {
@@ -727,6 +747,7 @@ select:focus-visible,
 
 .swatch-tonic { background: var(--accent); }
 .swatch-scale { background: var(--note-light); }
+.swatch-target { background: var(--target); }
 .swatch-selected {
   background: #fff;
   box-shadow: 0 0 0 2px var(--teal);
@@ -940,5 +961,8 @@ select:focus-visible,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; }
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
 }
