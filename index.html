@@ -4,25 +4,36 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Braço de Guitarra</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- Barra superior: para onde ir (modo) e como ler as notas (preferência). -->
+  <header class="topbar">
+    <h1 class="brand">Braço de Guitarra</h1>
+
+    <fieldset class="tabs">
+      <legend class="visually-hidden">Modo</legend>
+      <label><input type="radio" name="mode" value="scales" checked><span>Escalas</span></label>
+      <label><input type="radio" name="mode" value="chords"><span>Acordes</span></label>
+      <label><input type="radio" name="mode" value="training"><span>Treino</span></label>
+    </fieldset>
+
+    <fieldset class="notation">
+      <legend>Nomes</legend>
+      <div class="segmented is-small">
+        <label><input type="radio" name="notation" value="letters" checked><span>C D E</span></label>
+        <label><input type="radio" name="notation" value="solfege"><span>Dó Ré Mi</span></label>
+        <label><input type="radio" name="notation" value="degrees"><span>Graus</span></label>
+      </div>
+    </fieldset>
+  </header>
+
   <main class="page">
-    <header class="page-header">
-      <h1>Braço de Guitarra</h1>
-      <p>Escolha uma nota e uma escala ou acorde, ou clique em qualquer casa para descobrir a nota.</p>
-    </header>
-
-    <section class="controls" aria-label="Opções do braço">
-      <fieldset class="control">
-        <legend>Visualizar</legend>
-        <div class="segmented">
-          <label><input type="radio" name="mode" value="scales" checked><span>Escalas</span></label>
-          <label><input type="radio" name="mode" value="chords"><span>Acordes</span></label>
-          <label><input type="radio" name="mode" value="training"><span>Treino</span></label>
-        </div>
-      </fieldset>
-
+    <!-- O que estudar. Durante o treino, dá lugar ao painel Agora/Próximo. -->
+    <section class="choose" id="choose" aria-label="O que mostrar no braço">
       <fieldset class="control" id="training-kind-control" hidden>
         <legend>Treinar</legend>
         <div class="segmented">
@@ -45,64 +56,77 @@
         <label for="chord-select">Acorde</label>
         <select id="chord-select"></select>
       </div>
-
-      <fieldset class="control">
-        <legend>Mostrar como</legend>
-        <div class="segmented">
-          <label><input type="radio" name="notation" value="letters" checked><span>C D E</span></label>
-          <label><input type="radio" name="notation" value="solfege"><span>Dó Ré Mi</span></label>
-          <label><input type="radio" name="notation" value="degrees"><span>Graus</span></label>
-        </div>
-      </fieldset>
     </section>
 
-    <section class="metronome" aria-label="Metrônomo">
-      <button type="button" class="metronome-toggle" id="metronome-toggle" aria-pressed="false">Iniciar metrônomo</button>
-      <label class="bpm-number" for="bpm-number">BPM
-        <input type="number" id="bpm-number" min="30" max="240" step="1" value="80">
-      </label>
-      <input type="range" class="bpm-range" id="bpm-range" min="30" max="240" step="1" value="80" aria-label="Ajustar BPM">
-      <ol class="beats" id="beats" aria-hidden="true"></ol>
-      <div class="bpm-ramp">
-        <label class="ramp-toggle"><input type="checkbox" id="ramp-enabled">Aumentar BPM</label>
-        <label class="ramp-field">Iniciar em
-          <input type="number" id="ramp-start" min="30" max="240" step="1" value="80" disabled>
-          BPM
-        </label>
-        <label class="ramp-field">A cada
-          <input type="number" id="ramp-every" min="1" max="64" step="1" value="4" disabled>
-          loops de 4 tempos
-        </label>
-        <label class="ramp-field">somar
-          <input type="number" id="ramp-step" min="1" max="50" step="1" value="10" disabled>
-          BPM
-        </label>
-        <div class="ramp-limit">
-          <label class="ramp-toggle"><input type="checkbox" id="ramp-limit-enabled" disabled>Parar em</label>
-          <label class="ramp-field">
-            <input type="number" id="ramp-limit" min="30" max="240" step="1" value="160" aria-label="BPM em que o metrônomo deve parar" disabled>
-            BPM
-          </label>
+    <section class="training-stage" id="training-stage" aria-label="Treino em andamento" hidden>
+      <div class="training-flow">
+        <div class="training-card is-now" aria-live="polite" aria-atomic="true">
+          <div class="training-card-text">
+            <small class="training-label">Agora</small>
+            <strong class="training-name" id="training-current-name"></strong>
+            <span class="training-detail" id="training-current-detail"></span>
+          </div>
+          <div class="training-diagram" id="training-diagram"></div>
         </div>
-        <span class="loop-status" id="loop-status"></span>
+        <div class="training-arrow" aria-hidden="true">
+          <svg class="training-arrow-icon" viewBox="0 0 32 16"><path d="M1 8h28m-7-6 7 6-7 6"/></svg>
+          <span class="training-progress"><span class="training-progress-bar" id="training-progress-bar"></span></span>
+        </div>
+        <div class="training-card is-next">
+          <div class="training-card-text">
+            <small class="training-label">Próximo</small>
+            <strong class="training-name" id="training-next-name"></strong>
+            <span class="training-detail" id="training-next-detail"></span>
+          </div>
+          <div class="training-diagram" id="training-next-diagram"></div>
+        </div>
+      </div>
+      <div class="training-info">
+        <p class="training-countdown" id="training-countdown"></p>
+        <button type="button" class="button is-dark" id="training-stop">Parar treino</button>
       </div>
     </section>
 
-    <section class="training" id="training" aria-label="Treino" hidden>
-      <div class="training-setup" id="training-setup">
+    <!-- O braço é o centro da página: título do que está à mostra, legenda e casas. -->
+    <section class="neck-panel" aria-label="Braço da guitarra">
+      <div class="neck-head">
+        <div class="scale-summary" aria-live="polite">
+          <h2 id="scale-title"></h2>
+          <ol id="scale-notes" class="scale-notes"></ol>
+        </div>
+        <ul class="legend">
+          <li><span class="swatch swatch-tonic"></span><span id="legend-tonic">Tônica</span></li>
+          <li><span class="swatch swatch-scale"></span><span id="legend-scale">Nota da escala</span></li>
+          <li id="legend-target" hidden><span class="swatch swatch-target"></span>Tocar agora</li>
+          <li id="legend-next" hidden><span class="swatch swatch-next"></span>Próxima</li>
+          <li><span class="swatch swatch-selected"></span>Marcada por você</li>
+          <li id="legend-muted" hidden><span class="swatch-muted" aria-hidden="true">×</span>Corda abafada</li>
+        </ul>
+      </div>
+      <div class="neck-scroll" tabindex="-1">
+        <div class="neck" id="neck" role="group" aria-label="Casas do braço. Use as setas para navegar e Enter para marcar."></div>
+      </div>
+    </section>
+
+    <!-- Abaixo do braço, o que complementa o modo atual. -->
+    <div class="bench">
+      <section class="voicings-panel" id="voicings-panel" hidden>
+        <div class="section-head">
+          <h2 id="voicings-title">Formas</h2>
+          <button type="button" class="button is-primary" id="training-add" hidden></button>
+        </div>
+        <ul class="voicings" id="voicings"></ul>
+      </section>
+
+      <section class="training-setup" id="training-setup" hidden>
         <div class="training-sequence" id="training-chords">
-          <div class="training-heading">
-            <h2>Sequência do treino</h2>
-            <button type="button" class="training-add" id="training-add"></button>
-          </div>
-          <p class="empty" id="training-empty">Escolha a nota, o acorde e a variação (abaixo do braço) e adicione pelo menos 2 acordes.</p>
+          <h2 id="training-chords-title">Sequência</h2>
+          <p class="empty" id="training-empty">Escolha a nota, o acorde e a forma, e adicione pelo menos 2 acordes.</p>
           <ol class="training-list" id="training-list"></ol>
         </div>
 
         <div class="training-sequence" id="training-notes" hidden>
-          <div class="training-heading">
-            <h2 id="training-notes-title"></h2>
-          </div>
+          <h2 id="training-notes-title"></h2>
           <p class="empty" id="training-notes-info"></p>
         </div>
 
@@ -116,89 +140,72 @@
           </fieldset>
 
           <fieldset class="control">
-            <legend>Trocar por</legend>
-            <div class="segmented">
-              <label><input type="radio" name="training-unit" value="loops" checked><span>Loop</span></label>
-              <label><input type="radio" name="training-unit" value="beats"><span>Batida</span></label>
+            <legend>Trocar a cada</legend>
+            <div class="training-every">
+              <input type="number" id="training-loops" min="1" max="64" step="1" value="1" aria-label="Quantidade de loops">
+              <input type="number" id="training-beats" min="1" max="64" step="1" value="4" aria-label="Quantidade de batidas" hidden>
+              <div class="segmented">
+                <label><input type="radio" name="training-unit" value="loops" checked><span>loops</span></label>
+                <label><input type="radio" name="training-unit" value="beats"><span>batidas</span></label>
+              </div>
             </div>
           </fieldset>
+        </div>
 
-          <label class="training-number" id="training-loops-field">A cada
-            <input type="number" id="training-loops" min="1" max="64" step="1" value="1">
+        <button type="button" class="button is-primary is-wide" id="training-start" disabled>Iniciar treino</button>
+      </section>
+
+      <section class="selection" id="selection">
+        <div class="section-head">
+          <h2>Notas marcadas</h2>
+          <button type="button" class="button is-quiet" id="clear" hidden>Limpar</button>
+        </div>
+        <p class="empty" id="empty">Toque em uma casa do braço para marcar a nota e ver o que ela é.</p>
+        <ul class="cards" id="cards" aria-live="polite"></ul>
+      </section>
+    </div>
+  </main>
+
+  <!-- Metrônomo fixo no rodapé, sempre ao alcance, como o transporte de um gravador. -->
+  <footer class="transport" aria-label="Metrônomo">
+    <div class="transport-inner">
+      <button type="button" class="metronome-toggle" id="metronome-toggle" aria-pressed="false">Iniciar metrônomo</button>
+
+      <label class="bpm-number" for="bpm-number">
+        <input type="number" id="bpm-number" min="30" max="240" step="1" value="80">
+        <span>BPM</span>
+      </label>
+      <input type="range" class="bpm-range" id="bpm-range" min="30" max="240" step="1" value="80" aria-label="Ajustar BPM">
+      <ol class="beats" id="beats" aria-hidden="true"></ol>
+      <span class="loop-status" id="loop-status"></span>
+
+      <details class="ramp" id="ramp">
+        <summary><span class="ramp-label">Aumentar BPM</span> <span class="ramp-summary" id="ramp-summary">desligado</span></summary>
+        <div class="ramp-panel">
+          <label class="ramp-toggle"><input type="checkbox" id="ramp-enabled">Aumentar o BPM aos poucos</label>
+          <label class="ramp-field">Começar em
+            <input type="number" id="ramp-start" min="30" max="240" step="1" value="80" disabled>
+            BPM
+          </label>
+          <label class="ramp-field">Somar
+            <input type="number" id="ramp-step" min="1" max="50" step="1" value="10" disabled>
+            BPM
+          </label>
+          <label class="ramp-field">A cada
+            <input type="number" id="ramp-every" min="1" max="64" step="1" value="4" disabled>
             loops de 4 tempos
           </label>
-          <label class="training-number" id="training-beats-field" hidden>A cada
-            <input type="number" id="training-beats" min="1" max="64" step="1" value="4">
-            batidas
-          </label>
-
-          <button type="button" class="training-toggle" id="training-start" disabled>Iniciar treino</button>
-        </div>
-      </div>
-
-      <div class="training-stage" id="training-stage" hidden>
-        <div class="training-flow">
-          <div class="training-card is-now" aria-live="polite" aria-atomic="true">
-            <div class="training-card-text">
-              <small class="training-label">Agora <span id="training-current-label"></span></small>
-              <strong class="training-name" id="training-current-name"></strong>
-              <span class="training-detail" id="training-current-detail"></span>
-            </div>
-            <div class="training-diagram" id="training-diagram"></div>
-          </div>
-          <div class="training-arrow" aria-hidden="true">
-            <span class="training-arrow-icon">➜</span>
-            <span class="training-progress"><span class="training-progress-bar" id="training-progress-bar"></span></span>
-          </div>
-          <div class="training-card is-next">
-            <div class="training-card-text">
-              <small class="training-label">Próximo <span id="training-next-label"></span></small>
-              <strong class="training-name" id="training-next-name"></strong>
-              <span class="training-detail" id="training-next-detail"></span>
-            </div>
-            <div class="training-diagram" id="training-next-diagram"></div>
+          <div class="ramp-limit">
+            <label class="ramp-toggle"><input type="checkbox" id="ramp-limit-enabled" disabled>Parar em</label>
+            <label class="ramp-field">
+              <input type="number" id="ramp-limit" min="30" max="240" step="1" value="160" aria-label="BPM em que o metrônomo deve parar" disabled>
+              BPM
+            </label>
           </div>
         </div>
-        <div class="training-info">
-          <p class="training-countdown" id="training-countdown"></p>
-          <button type="button" class="training-toggle is-stop" id="training-stop">Parar treino</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="scale-summary" aria-live="polite">
-      <h2 id="scale-title"></h2>
-      <ol id="scale-notes" class="scale-notes"></ol>
-    </section>
-
-    <section class="neck-panel" aria-label="Braço da guitarra">
-      <div class="neck-scroll" tabindex="-1">
-        <div class="neck" id="neck" role="group" aria-label="Casas do braço. Use as setas para navegar e Enter para selecionar."></div>
-      </div>
-      <ul class="legend">
-        <li><span class="swatch swatch-tonic"></span><span id="legend-tonic">Tônica</span></li>
-        <li><span class="swatch swatch-scale"></span><span id="legend-scale">Nota da escala</span></li>
-        <li id="legend-target" hidden><span class="swatch swatch-target"></span>Tocar agora</li>
-        <li id="legend-next" hidden><span class="swatch swatch-next"></span>Próxima</li>
-        <li><span class="swatch swatch-selected"></span>Selecionada por você</li>
-        <li id="legend-muted" hidden><span class="swatch-muted" aria-hidden="true">×</span>Corda abafada</li>
-      </ul>
-    </section>
-
-    <section class="voicings-panel" id="voicings-panel" hidden>
-      <h2>Variações</h2>
-      <ul class="voicings" id="voicings"></ul>
-    </section>
-
-    <section class="selection">
-      <div class="selection-header">
-        <h2>Notas selecionadas</h2>
-        <button type="button" class="clear" id="clear" hidden>Limpar seleção</button>
-      </div>
-      <p class="empty" id="empty">Clique em uma casa de qualquer corda para ver a nota aqui e sobre a corda.</p>
-      <ul class="cards" id="cards" aria-live="polite"></ul>
-    </section>
-  </main>
+      </details>
+    </div>
+  </footer>
 
   <script src="script.js"></script>
 </body>
