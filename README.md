@@ -74,6 +74,7 @@ Por exemplo: começar em 80, somar 10 a cada 4 loops e parar em 120. Sem a opç�
 ### Exibição e seleção de notas
 
 - **Nomes:** cifra (`C D E`), solfejo (`Dó Ré Mi`) ou graus (`1 b3 5`), no canto da barra superior.
+- **Tema claro ou escuro:** o botão com a lua (ou o sol), no canto da barra superior, troca o tema. Sem escolha, o app segue o tema do sistema; depois de escolher, a escolha fica salva no navegador. No celular, o botão fica na linha das abas.
 - **Notas marcadas:** clique em qualquer casa para marcar a nota, que ganha um anel azul. A lista abaixo do braço informa a posição, o grau e o nome equivalente (A# = Bb). Clique de novo para desmarcar.
 - **Teclado:** use as setas para navegar pelas casas e Enter para marcar.
 
@@ -84,7 +85,11 @@ O braço tem cordas soltas e 22 casas, em afinação padrão, com a corda 1 (E a
 | Arquivo | Conteúdo |
 | --- | --- |
 | `index.html` | Estrutura da página |
-| `style.css` | Estilos |
+| `style.css` | Estilos e tokens de cor dos temas claro e escuro |
 | `script.js` | Teoria musical, geração das variações, montagem do braço, metrônomo e treino |
 | `screenshot.png` | Captura de tela usada neste README |
 | `docs/estudo-ux-ui.md` | Estudo de UX e UI: diagnóstico, proposta e capturas de antes e depois |
+
+## Temas claro e escuro
+
+Toda cor da interface é um token em `style.css`: o tema claro fica no `:root` e o escuro em `:root[data-theme="dark"]`, logo abaixo. O resto do CSS usa só `var(--token)`, nunca uma cor fixa. Ao criar uma feature que precise de uma cor nova, crie o token nos dois blocos e confira a tela nos dois temas. O braço é madeira escura nos dois temas, então as cores das notas sobre ele (`--on-pearl`, `--on-go`, `--on-tonic`, `--selected`) não mudam.

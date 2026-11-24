@@ -4,30 +4,63 @@
   escala ou do acorde, verde (como o LED de um afinador) é "tocar agora" e azul é o
   que você marcou. A tipografia usa a largura expandida da Archivo nos títulos e
   números, lembrando as letras do painel de um amplificador.
+
+  Temas claro e escuro: toda cor da interface é um token definido aqui, no :root
+  (tema claro), e redefinido no bloco do tema escuro logo abaixo. As regras do resto
+  do arquivo só usam var(--token), nunca uma cor fixa. Uma feature nova que precise de
+  uma cor nova cria o token nos dois temas. O tema segue o sistema até a pessoa
+  escolher no botão do topo; a escolha fica salva e vira <html data-theme="...">.
+  O braço é madeira escura nos dois temas, então os tokens --neck-* e as cores das
+  notas (--on-pearl, --on-go, --on-tonic, --selected) mudam pouco ou nada.
 */
 :root {
+  color-scheme: light;
+
   --page: #e6e9ec;
   --surface: #ffffff;
   --ink: #18202c;
+  --ink-hover: #2c3747;
+  --on-ink: #ffffff;
   --muted: #586272;
   --line: #c9cfd7;
   --line-soft: #dbe0e5;
   --fill: #d7dce2;
+  --shadow-s: 0 1px 2px rgb(24 32 44 / 0.18);
+  --shadow-pop: 0 12px 32px rgb(24 32 44 / 0.28);
+  --pop-edge: transparent;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%2318202c' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1.5 5 5 5-5'/%3E%3C/svg%3E");
 
   --tonic: #e5484d;
+  --on-tonic: #ffffff;
   --pearl: #f1ece2;
+  --on-pearl: #18202c;
   --go: #2fcb74;
+  --on-go: #18202c;
   --go-soft: #e1f6e9;
   --go-ink: #0d6b39;
+  --go-glow: rgb(47 203 116 / 0.35);
   --mark: #3f7ff0;
+  --selected: #ffffff;
+  --on-selected: #18202c;
 
   --neck-panel: #17120f;
+  --neck-edge: transparent;
+  --neck-ink: #ffffff;
+  --neck-text: #c3bcb0;
+  --neck-text-muted: #b4ab9d;
+  --neck-chip: rgb(241 236 226 / 0.1);
+  --neck-hover: rgb(255 255 255 / 0.22);
+  --neck-scrollbar: #5d4c3f;
   --wood: #2a1c15;
+  --nut: #e9e3d6;
   --fret: #9aa0a6;
+  --fret-number: #8a8379;
+  --fret-number-marked: #e9e3d6;
   --string: #d5d8dc;
   --inlay: #6f6151;
 
   --transport: #18202c;
+  --transport-edge: transparent;
   --transport-raised: #2a3442;
   --transport-text: #e8ecf1;
   --transport-muted: #98a3b3;
@@ -39,6 +72,36 @@
   --gutter: 24px;
 
   --font: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Tema escuro: grafite no lugar do níquel. O script no <head> do index.html põe
+   data-theme="dark" quando o sistema está no escuro ou quando a pessoa escolheu. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --page: #12161c;
+  --surface: #1b212a;
+  --ink: #e6eaf0;
+  --ink-hover: #c9d0da;
+  --on-ink: #12161c;
+  --muted: #9aa4b2;
+  --line: #343d4a;
+  --line-soft: #282f3a;
+  --fill: #262e39;
+  --shadow-s: 0 1px 2px rgb(0 0 0 / 0.5);
+  --shadow-pop: 0 12px 32px rgb(0 0 0 / 0.55);
+  --pop-edge: #343d4a;
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%23e6eaf0' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1.5 5 5 5-5'/%3E%3C/svg%3E");
+
+  --go-soft: #133222;
+  --go-ink: #6ee7a4;
+  --mark: #5b93f5;
+
+  --neck-edge: #2e2621;
+
+  --transport: #0b0e12;
+  --transport-edge: #262e39;
+  --transport-raised: #232b36;
 }
 
 * { box-sizing: border-box; }
@@ -166,6 +229,37 @@ h1, h2 { margin: 0; }
   color: var(--muted);
 }
 
+/* Botão de tema: mostra a lua no claro e o sol no escuro, o tema para onde vai */
+.theme-toggle {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 14px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.theme-toggle:hover { color: var(--ink); border-color: var(--ink); }
+
+.theme-icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-sun,
+:root[data-theme="dark"] .icon-moon { display: none; }
+:root[data-theme="dark"] .icon-sun { display: block; }
+
 /* Controles genéricos */
 .control {
   margin: 0;
@@ -216,7 +310,7 @@ h1, h2 { margin: 0; }
 .segmented input:checked + span {
   background: var(--surface);
   color: var(--ink);
-  box-shadow: 0 1px 2px rgb(24 32 44 / 0.18);
+  box-shadow: var(--shadow-s);
 }
 
 select {
@@ -226,7 +320,7 @@ select {
   padding: 0 38px 0 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius-m);
-  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' stroke='%2318202c' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m1 1.5 5 5 5-5'/%3E%3C/svg%3E") no-repeat right 14px center;
+  background: var(--surface) var(--select-arrow) no-repeat right 14px center;
   color: var(--ink);
   font: inherit;
   font-weight: 600;
@@ -274,10 +368,10 @@ input[type="number"]:disabled {
 .button.is-dark {
   background: var(--ink);
   border-color: var(--ink);
-  color: #fff;
+  color: var(--on-ink);
 }
 
-.button.is-primary:hover { background: #2c3747; }
+.button.is-primary:hover { background: var(--ink-hover); }
 
 .button.is-quiet {
   min-height: 32px;
@@ -346,7 +440,7 @@ input:focus-visible + span {
 .root-options input:checked + span {
   background: var(--ink);
   border-color: var(--ink);
-  color: #fff;
+  color: var(--on-ink);
 }
 
 /* Treino em andamento: ocupa o lugar da escolha, logo acima do braço */
@@ -471,6 +565,7 @@ input:focus-visible + span {
   padding: 18px 20px 16px;
   background: var(--neck-panel);
   border-radius: var(--radius-l);
+  box-shadow: inset 0 0 0 1px var(--neck-edge);
   color: var(--pearl);
 }
 
@@ -509,14 +604,14 @@ input:focus-visible + span {
   align-items: baseline;
   gap: 5px;
   padding: 3px 10px;
-  background: rgb(241 236 226 / 0.1);
+  background: var(--neck-chip);
   border-radius: 999px;
   font-size: 0.9rem;
   font-weight: 700;
 }
 
 .scale-notes small {
-  color: #b4ab9d;
+  color: var(--neck-text-muted);
   font-size: 0.75rem;
   font-weight: 500;
 }
@@ -529,7 +624,7 @@ input:focus-visible + span {
   padding: 0;
   list-style: none;
   font-size: 0.82rem;
-  color: #c3bcb0;
+  color: var(--neck-text);
 }
 
 .legend li {
@@ -556,7 +651,7 @@ input:focus-visible + span {
 }
 
 .swatch-selected {
-  background: #fff;
+  background: var(--selected);
   box-shadow: 0 0 0 2px var(--mark);
 }
 
@@ -570,7 +665,7 @@ input:focus-visible + span {
 .neck-scroll {
   overflow-x: auto;
   outline: none;
-  scrollbar-color: #5d4c3f transparent;
+  scrollbar-color: var(--neck-scrollbar) transparent;
 }
 
 .neck {
@@ -591,7 +686,7 @@ input:focus-visible + span {
   grid-row: 1 / 7;
   justify-self: start;
   width: 6px;
-  background: #e9e3d6;
+  background: var(--nut);
 }
 
 .fret {
@@ -631,12 +726,12 @@ input:focus-visible + span {
   align-self: end;
   text-align: center;
   font-size: 0.75rem;
-  color: #8a8379;
+  color: var(--fret-number);
   font-variant-numeric: tabular-nums;
 }
 
 .fret-number.marked {
-  color: #e9e3d6;
+  color: var(--fret-number-marked);
   font-weight: 700;
 }
 
@@ -669,21 +764,21 @@ input:focus-visible + span {
 
 .pos.is-scale .note {
   background: var(--pearl);
-  color: var(--ink);
+  color: var(--on-pearl);
   opacity: 1;
   transform: none;
 }
 
 .pos.is-tonic .note {
   background: var(--tonic);
-  color: #fff;
+  color: var(--on-tonic);
 }
 
 .pos.is-muted .note {
   width: 22px;
   height: 22px;
   background: var(--neck-panel);
-  color: #fff;
+  color: var(--neck-ink);
   font-size: 1.25rem;
   font-weight: 500;
   opacity: 1;
@@ -691,8 +786,8 @@ input:focus-visible + span {
 }
 
 .pos.is-selected .note {
-  background: #fff;
-  color: var(--ink);
+  background: var(--selected);
+  color: var(--on-selected);
   box-shadow: 0 0 0 3px var(--mark);
   opacity: 1;
   transform: none;
@@ -700,7 +795,7 @@ input:focus-visible + span {
 
 .pos.is-selected.is-tonic .note {
   background: var(--tonic);
-  color: #fff;
+  color: var(--on-tonic);
 }
 
 /* Treino de notas: a posição a tocar agora */
@@ -710,7 +805,7 @@ input:focus-visible + span {
   width: 36px;
   height: 36px;
   background: var(--go);
-  color: var(--ink);
+  color: var(--on-go);
   font-size: 0.88rem;
   opacity: 1;
   transform: none;
@@ -719,7 +814,7 @@ input:focus-visible + span {
 }
 
 @keyframes target-pulse {
-  50% { box-shadow: 0 0 0 3px var(--neck-panel), 0 0 0 9px rgb(47 203 116 / 0.35); }
+  50% { box-shadow: 0 0 0 3px var(--neck-panel), 0 0 0 9px var(--go-glow); }
 }
 
 /* Treino de notas: a próxima posição, com anel tracejado para já mirar a mão */
@@ -731,21 +826,21 @@ input:focus-visible + span {
 .pos:focus-visible { outline: none; }
 
 .pos:not(.is-scale, .is-selected, .is-muted):focus-visible .note {
-  background: rgb(255 255 255 / 0.22);
-  color: #fff;
+  background: var(--neck-hover);
+  color: var(--neck-ink);
   opacity: 1;
   transform: none;
 }
 
 .pos:focus-visible .note {
-  outline: 2px solid #fff;
+  outline: 2px solid var(--neck-ink);
   outline-offset: 3px;
 }
 
 @media (hover: hover) {
   .pos:not(.is-scale, .is-selected, .is-muted):hover .note {
-    background: rgb(255 255 255 / 0.22);
-    color: #fff;
+    background: var(--neck-hover);
+    color: var(--neck-ink);
     opacity: 1;
     transform: none;
   }
@@ -998,7 +1093,8 @@ body[data-mode][data-running="true"] .bench {
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--selected);
+  color: var(--on-selected);
   box-shadow: 0 0 0 3px var(--mark);
   font-size: 1.15rem;
   font-weight: 800;
@@ -1026,6 +1122,7 @@ body[data-mode][data-running="true"] .bench {
   bottom: 0;
   z-index: 10;
   background: var(--transport);
+  border-top: 1px solid var(--transport-edge);
   color: var(--transport-text);
 }
 
@@ -1064,7 +1161,7 @@ body[data-mode][data-running="true"] .bench {
 
 .metronome-toggle[aria-pressed="true"] {
   background: var(--go);
-  color: var(--ink);
+  color: var(--on-go);
 }
 
 .metronome-toggle[aria-pressed="true"]::before {
@@ -1072,12 +1169,12 @@ body[data-mode][data-running="true"] .bench {
   height: 12px;
   border: 0;
   border-radius: 2px;
-  background: var(--ink);
+  background: var(--on-go);
 }
 
 .metronome-toggle:hover { filter: brightness(1.1); }
 
-.transport :focus-visible { outline-color: #fff; }
+.transport :focus-visible { outline-color: var(--transport-text); }
 
 .bpm-number {
   display: flex;
@@ -1189,7 +1286,7 @@ body[data-mode][data-running="true"] .bench {
   background: var(--surface);
   color: var(--ink);
   border-radius: var(--radius-l);
-  box-shadow: 0 12px 32px rgb(24 32 44 / 0.28);
+  box-shadow: var(--shadow-pop), inset 0 0 0 1px var(--pop-edge);
 }
 
 .ramp-toggle,
@@ -1251,7 +1348,10 @@ body[data-mode][data-running="true"] .bench {
   .notation { order: 2; padding: 0 0 6px; }
   .notation legend { display: none; }
   .notation .segmented span { padding: 0 7px; font-size: 0.8rem; }
-  .tabs { order: 3; width: 100%; }
+  /* O botão de tema vai para a linha das abas, onde sobra espaço; a primeira linha
+     fica só com o nome e a notação. */
+  .tabs { order: 3; flex: 1; }
+  .theme-toggle { order: 4; margin: 0 0 4px 8px; }
   .tabs label { flex: 1; }
   .tabs span { justify-content: center; width: 100%; padding: 8px 4px 12px; }
 

@@ -189,6 +189,7 @@ const el = {
   cards: document.getElementById('cards'),
   empty: document.getElementById('empty'),
   clear: document.getElementById('clear'),
+  themeToggle: document.getElementById('theme-toggle'),
 };
 
 const positions = []; // positions[corda][casa] = { button, note }
@@ -1319,6 +1320,43 @@ el.clear.addEventListener('click', () => {
   state.selected = [];
   render();
 });
+
+// Tema claro ou escuro. O script no <head> já aplicou o tema inicial; aqui ficam a
+// troca pelo botão (que passa a valer sempre) e o acompanhamento do sistema enquanto
+// a pessoa não escolheu nada.
+const THEME_KEY = 'theme';
+const darkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+
+function savedTheme() {
+  try {
+    return localStorage.getItem(THEME_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const label = `Mudar para o tema ${theme === 'dark' ? 'claro' : 'escuro'}`;
+  el.themeToggle.setAttribute('aria-label', label);
+  el.themeToggle.title = label;
+}
+
+el.themeToggle.addEventListener('click', () => {
+  const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch {
+    // Sem armazenamento (janela anônima, arquivo bloqueado): vale só nesta visita.
+  }
+  applyTheme(theme);
+});
+
+darkScheme.addEventListener('change', (event) => {
+  if (!savedTheme()) applyTheme(event.matches ? 'dark' : 'light');
+});
+
+applyTheme(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light');
 
 buildRootOptions();
 buildSelect(el.scaleSelect, SCALE_GROUPS, 'scales', state.scale);
