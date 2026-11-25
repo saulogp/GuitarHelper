@@ -28,6 +28,7 @@
       <legend class="visually-hidden">Modo</legend>
       <label><input type="radio" name="mode" value="scales" checked><span>Escalas</span></label>
       <label><input type="radio" name="mode" value="chords"><span>Acordes</span></label>
+      <label><input type="radio" name="mode" value="field"><span>Campo<span class="tab-extra">harmônico</span></span></label>
       <label><input type="radio" name="mode" value="training"><span>Treino</span></label>
     </fieldset>
 
@@ -71,6 +72,19 @@
         <label for="chord-select">Acorde</label>
         <select id="chord-select"></select>
       </div>
+
+      <div class="control" id="field-mode-control" hidden>
+        <label for="field-mode-select">Tonalidade</label>
+        <select id="field-mode-select"></select>
+      </div>
+
+      <fieldset class="control" id="field-size-control" hidden>
+        <legend>Acordes</legend>
+        <div class="segmented">
+          <label><input type="radio" name="field-size" value="triads" checked><span>Tríades</span></label>
+          <label><input type="radio" name="field-size" value="tetrads"><span>Tétrades</span></label>
+        </div>
+      </fieldset>
     </section>
 
     <section class="training-stage" id="training-stage" aria-label="Treino em andamento" hidden>
@@ -109,6 +123,12 @@
           <h2 id="scale-title"></h2>
           <ol id="scale-notes" class="scale-notes"></ol>
         </div>
+        <div class="neck-tools">
+          <label class="tuning-control">
+            <span>Afinação</span>
+            <select id="tuning-select"></select>
+          </label>
+        </div>
         <ul class="legend">
           <li><span class="swatch swatch-tonic"></span><span id="legend-tonic">Tônica</span></li>
           <li><span class="swatch swatch-scale"></span><span id="legend-scale">Nota da escala</span></li>
@@ -116,6 +136,8 @@
           <li id="legend-next" hidden><span class="swatch swatch-next"></span>Próxima</li>
           <li><span class="swatch swatch-selected"></span>Marcada por você</li>
           <li id="legend-muted" hidden><span class="swatch-muted" aria-hidden="true">×</span>Corda abafada</li>
+          <li id="legend-outside" hidden><span class="swatch swatch-outside"></span>Fora do shape</li>
+          <li id="legend-finger" hidden><span class="swatch-finger" aria-hidden="true">1</span>Dedo sugerido</li>
         </ul>
       </div>
       <div class="neck-scroll" tabindex="-1">
@@ -125,12 +147,156 @@
 
     <!-- Abaixo do braço, o que complementa o modo atual. -->
     <div class="bench">
+      <section class="field-panel" id="field-panel" hidden>
+        <div class="section-head">
+          <h2 id="field-title">Campo harmônico</h2>
+          <div class="segmented is-small">
+            <label><input type="radio" name="field-view" value="cards" checked><span>Cards</span></label>
+            <label><input type="radio" name="field-view" value="table"><span>Tabela</span></label>
+          </div>
+        </div>
+        <p class="field-note" id="field-note"></p>
+        <ol class="field-cards" id="field-cards"></ol>
+        <div class="field-table-wrap" id="field-table-wrap" hidden>
+          <table class="field-table">
+            <thead>
+              <tr>
+                <th scope="col">Grau</th>
+                <th scope="col">Acorde</th>
+                <th scope="col">Nome</th>
+                <th scope="col">Classificação</th>
+                <th scope="col">Notas</th>
+                <th scope="col">Fórmula</th>
+                <th scope="col">Função</th>
+                <th scope="col"><span class="visually-hidden">Ouvir</span></th>
+              </tr>
+            </thead>
+            <tbody id="field-table"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="degree-panel" id="degree-panel" hidden aria-live="polite">
+        <small class="degree-kicker" id="degree-kicker"></small>
+        <h2 id="degree-title"></h2>
+        <p class="degree-relation" id="degree-relation"></p>
+        <dl class="degree-facts" id="degree-facts"></dl>
+        <h3 class="degree-subtitle">Notas do acorde</h3>
+        <ul class="note-buttons" id="degree-notes"></ul>
+      </section>
+
       <section class="voicings-panel" id="voicings-panel" hidden>
         <div class="section-head">
           <h2 id="voicings-title">Formas</h2>
           <button type="button" class="button is-primary" id="training-add" hidden></button>
         </div>
+        <div class="player chord-player" id="chord-player">
+          <div class="player-buttons">
+            <button type="button" class="button is-primary has-icon" id="chord-strum"><span class="icon-play" aria-hidden="true"></span>Tocar acorde</button>
+            <button type="button" class="button has-icon" id="chord-arpeggio"><span class="icon-arpeggio" aria-hidden="true"></span>Tocar arpejo</button>
+            <button type="button" class="button has-icon" id="chord-stop" disabled><span class="icon-stop" aria-hidden="true"></span>Parar</button>
+          </div>
+          <div class="player-options">
+            <fieldset class="control">
+              <legend>Arpejo</legend>
+              <div class="segmented is-small">
+                <label><input type="radio" name="arp-direction" value="up" checked><span>Grave → agudo</span></label>
+                <label><input type="radio" name="arp-direction" value="down"><span>Agudo → grave</span></label>
+              </div>
+            </fieldset>
+            <label class="player-field">
+              <span>Velocidade</span>
+              <input type="range" id="arp-bpm" min="40" max="320" step="10" value="160" aria-describedby="arp-bpm-out">
+              <output id="arp-bpm-out" for="arp-bpm">160 BPM</output>
+            </label>
+            <label class="check"><input type="checkbox" id="chord-repeat">Repetir</label>
+          </div>
+          <p class="player-hint" id="chord-hint" hidden>Escolha uma forma para ouvir o acorde.</p>
+        </div>
         <ul class="voicings" id="voicings"></ul>
+      </section>
+
+      <section class="shapes-panel" id="shapes-panel" hidden>
+        <div class="section-head">
+          <h2 id="shapes-title">Shapes da pentatônica</h2>
+          <div class="segmented is-small" id="pent-kind-control">
+            <label><input type="radio" name="pent-kind" value="pent-minor" checked><span>Menor</span></label>
+            <label><input type="radio" name="pent-kind" value="pent-major"><span>Maior</span></label>
+          </div>
+        </div>
+
+        <div class="shapes-hint" id="shapes-hint">
+          <p class="empty">Os cinco shapes aparecem nas escalas pentatônicas. Escolha uma para ver como elas cobrem o braço.</p>
+          <div class="player-buttons">
+            <button type="button" class="button" data-pentatonic="pent-minor" id="shapes-hint-minor">Pentatônica menor</button>
+            <button type="button" class="button" data-pentatonic="pent-major" id="shapes-hint-major">Pentatônica maior</button>
+          </div>
+        </div>
+
+        <div class="shapes-body" id="shapes-body">
+          <div class="shape-nav">
+            <button type="button" class="icon-button" id="shape-prev" aria-label="Shape anterior no braço"><span aria-hidden="true">‹</span></button>
+            <fieldset class="segmented shape-tabs">
+              <legend class="visually-hidden">Shape</legend>
+              <label><input type="radio" name="shape" value="all" checked><span>Todos</span></label>
+              <label><input type="radio" name="shape" value="0"><span>1</span></label>
+              <label><input type="radio" name="shape" value="1"><span>2</span></label>
+              <label><input type="radio" name="shape" value="2"><span>3</span></label>
+              <label><input type="radio" name="shape" value="3"><span>4</span></label>
+              <label><input type="radio" name="shape" value="4"><span>5</span></label>
+            </fieldset>
+            <button type="button" class="icon-button" id="shape-next" aria-label="Próximo shape no braço"><span aria-hidden="true">›</span></button>
+          </div>
+
+          <fieldset class="control" id="shape-region-control" hidden>
+            <legend>Região do braço</legend>
+            <div class="segmented is-small" id="shape-regions"></div>
+          </fieldset>
+
+          <div class="shape-info" id="shape-info" aria-live="polite"></div>
+
+          <label class="check" id="shape-fingers-control"><input type="checkbox" id="shape-fingers" checked>Mostrar a digitação (dedos)</label>
+        </div>
+      </section>
+
+      <section class="scale-player" id="scale-player" hidden>
+        <div class="section-head">
+          <h2>Ouvir a escala</h2>
+        </div>
+        <div class="player">
+          <div class="player-options is-stacked">
+            <fieldset class="control">
+              <legend>Trecho</legend>
+              <div class="segmented is-small">
+                <label><input type="radio" name="scale-range" value="one" checked><span>1 oitava</span></label>
+                <label><input type="radio" name="scale-range" value="two"><span>2 oitavas</span></label>
+                <label><input type="radio" name="scale-range" value="shape" id="scale-range-shape"><span>Shape</span></label>
+              </div>
+            </fieldset>
+            <fieldset class="control">
+              <legend>Direção</legend>
+              <div class="segmented is-small">
+                <label><input type="radio" name="scale-direction" value="up" checked><span>Subindo</span></label>
+                <label><input type="radio" name="scale-direction" value="down"><span>Descendo</span></label>
+                <label><input type="radio" name="scale-direction" value="updown"><span>Sobe e desce</span></label>
+              </div>
+            </fieldset>
+            <div class="player-row">
+              <label class="player-field">
+                <span>Velocidade</span>
+                <input type="number" id="scale-bpm" min="40" max="240" step="1" value="100">
+                <span>BPM</span>
+              </label>
+              <label class="check"><input type="checkbox" id="scale-repeat">Repetir</label>
+            </div>
+          </div>
+          <div class="player-buttons">
+            <button type="button" class="button is-primary has-icon" id="scale-play"><span class="icon-play" aria-hidden="true"></span><span id="scale-play-label">Tocar</span></button>
+            <button type="button" class="button has-icon" id="scale-pause" disabled><span class="icon-pause" aria-hidden="true"></span>Pausar</button>
+            <button type="button" class="button has-icon" id="scale-stop" disabled><span class="icon-stop" aria-hidden="true"></span>Parar</button>
+          </div>
+          <p class="player-status" id="scale-status" aria-live="polite"></p>
+        </div>
       </section>
 
       <section class="training-setup" id="training-setup" hidden>
@@ -219,9 +385,40 @@
           </div>
         </div>
       </details>
+
+      <details class="ramp sound" id="sound">
+        <summary><span class="ramp-label">Som</span> <span class="ramp-summary" id="sound-summary"></span></summary>
+        <div class="ramp-panel">
+          <label class="ramp-field is-column">Timbre
+            <select id="sound-instrument"></select>
+          </label>
+          <label class="ramp-field is-column">Volume
+            <span class="range-row">
+              <input type="range" id="sound-volume" min="0" max="100" step="1" value="80">
+              <output id="sound-volume-out" for="sound-volume">80%</output>
+            </span>
+          </label>
+          <label class="ramp-field is-column">Duração de cada nota
+            <span class="range-row">
+              <input type="range" id="sound-duration" min="0.3" max="4" step="0.1" value="1.5">
+              <output id="sound-duration-out" for="sound-duration">1,5 s</output>
+            </span>
+          </label>
+          <label class="ramp-toggle"><input type="checkbox" id="sound-on-click" checked>Ouvir a nota ao clicar no braço</label>
+        </div>
+      </details>
+
+      <button type="button" class="stop-sound" id="stop-sound" hidden>Parar som</button>
     </div>
   </footer>
 
+  <!-- Módulos em scripts comuns (sem import), para o app abrir direto do arquivo. -->
+  <script src="js/theory.js"></script>
+  <script src="js/tunings.js"></script>
+  <script src="js/chords.js"></script>
+  <script src="js/shapes.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/neck.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

@@ -40,6 +40,9 @@
   --go-ink: #0d6b39;
   --go-glow: rgb(47 203 116 / 0.35);
   --mark: #3f7ff0;
+  --sound: #f2a93b;
+  --sound-glow: rgb(242 169 59 / 0.45);
+  --on-sound: #18202c;
   --selected: #ffffff;
   --on-selected: #18202c;
 
@@ -51,6 +54,8 @@
   --neck-chip: rgb(241 236 226 / 0.1);
   --neck-hover: rgb(255 255 255 / 0.22);
   --neck-scrollbar: #5d4c3f;
+  --shape-band: rgb(241 236 226 / 0.09);
+  --shape-band-edge: rgb(241 236 226 / 0.55);
   --wood: #2a1c15;
   --nut: #e9e3d6;
   --fret: #9aa0a6;
@@ -194,7 +199,7 @@ h1, h2 { margin: 0; }
   cursor: pointer;
 }
 
-.tabs span {
+.tabs label > span {
   display: flex;
   align-items: center;
   padding: 0 14px 14px;
@@ -599,21 +604,79 @@ input:focus-visible + span {
   list-style: none;
 }
 
-.scale-notes li {
+.note-chip {
   display: flex;
   align-items: baseline;
   gap: 5px;
   padding: 3px 10px;
+  border: 0;
   background: var(--neck-chip);
   border-radius: 999px;
+  color: inherit;
+  font: inherit;
   font-size: 0.9rem;
   font-weight: 700;
+  cursor: pointer;
 }
 
-.scale-notes small {
+.note-chip:hover { background: var(--neck-hover); }
+
+.note-chip small {
   color: var(--neck-text-muted);
   font-size: 0.75rem;
   font-weight: 500;
+}
+
+/* Fora do braço (notas do grau no campo harmônico), o chip usa as cores da página. */
+.note-chip.is-light {
+  padding: 6px 14px;
+  background: var(--fill);
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.note-chip.is-light:hover { background: var(--line); }
+.note-chip.is-light small { color: var(--muted); }
+
+/* Afinação, no cabeçalho do braço */
+.neck-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.tuning-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--neck-text);
+}
+
+.tuning-control select {
+  height: 34px;
+  min-width: 0;
+  padding: 0 32px 0 10px;
+  border-color: var(--neck-chip);
+  background-color: var(--neck-chip);
+  background-image: none;
+  color: var(--pearl);
+  font-size: 0.85rem;
+}
+
+.tuning-control select:hover { border-color: var(--neck-text-muted); }
+.tuning-control select option { background: var(--surface); color: var(--ink); }
+
+.tuning-control::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-left: -28px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  pointer-events: none;
 }
 
 .legend {
@@ -671,18 +734,18 @@ input:focus-visible + span {
 .neck {
   display: grid;
   grid-template-rows: repeat(6, 44px) 28px;
-  min-width: 1180px;
+  min-width: 1170px;
 }
 
 .wood {
-  grid-column: 2 / -1;
+  grid-column: 3 / -1;
   grid-row: 1 / 7;
   background: var(--wood);
   border-radius: 0 4px 4px 0;
 }
 
 .nut {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 1 / 7;
   justify-self: start;
   width: 6px;
@@ -861,12 +924,16 @@ input:focus-visible + span {
   padding-block: 28px 40px;
 }
 
-.voicings-panel { grid-area: main; }
-.training-setup { grid-area: side; }
+.voicings-panel,
+.shapes-panel { grid-area: main; }
+.training-setup,
+.scale-player,
+.degree-panel { grid-area: side; }
+.field-panel { grid-area: field; }
 .selection { grid-area: sel; }
 
-body[data-mode="scales"] .bench { grid-template-areas: "sel sel"; }
 body[data-mode="chords"] .bench { grid-template-areas: "main sel"; }
+body[data-mode="field"] .bench { grid-template-areas: "field field" "main side" "sel sel"; }
 body[data-mode="training"][data-view="notes"] .bench {
   grid-template-columns: minmax(300px, 420px) minmax(0, 1fr);
   grid-template-areas: "side sel";
@@ -1328,6 +1395,588 @@ body[data-mode][data-running="true"] .bench {
 .ramp-panel :focus-visible { outline-offset: 2px; }
 .ramp-panel :focus-visible { outline-color: var(--mark); }
 
+/* Rótulo longo da aba: some no celular. O espaço vem da margem (em flex, um espaço
+   no começo do texto é descartado). */
+.tabs .tab-extra { margin-left: 0.28em; }
+
+/* Braço: nomes das cordas, digitação, notas fora do shape e destaque do som */
+.string-name {
+  align-self: center;
+  justify-self: start;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--neck-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pos { z-index: 2; }
+
+.finger {
+  position: absolute;
+  right: calc(50% - 22px);
+  bottom: 1px;
+  display: grid;
+  place-items: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: 8px;
+  background: var(--neck-panel);
+  box-shadow: inset 0 0 0 1px var(--shape-band-edge);
+  color: var(--pearl);
+  font-size: 0.62rem;
+  font-weight: 750;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.finger:empty { display: none; }
+
+.pos.is-outside .note { opacity: 0.3; }
+
+/* Soando: um anel âmbar, como a lâmpada piloto de um amplificador. */
+.pos.is-sounding .note,
+.pos.is-current .note {
+  opacity: 1;
+  transform: scale(1.12);
+  box-shadow: 0 0 0 3px var(--sound), 0 0 14px 2px var(--sound-glow);
+}
+
+.pos.is-sounding:not(.is-scale, .is-selected) .note,
+.pos.is-current:not(.is-scale, .is-selected) .note {
+  background: var(--sound);
+  color: var(--on-sound);
+}
+
+.pos.is-current .note { animation: sound-pulse 0.5s ease-out; }
+
+@keyframes sound-pulse {
+  from { box-shadow: 0 0 0 3px var(--sound), 0 0 0 12px var(--sound-glow); }
+}
+
+/* Faixa do shape escolhido, atrás das notas */
+.shape-band {
+  z-index: 1;
+  position: relative;
+  margin-inline: -2px;
+  border-inline: 2px solid var(--shape-band-edge);
+  border-radius: 6px;
+  background: var(--shape-band);
+  pointer-events: none;
+}
+
+/* Mapa dos shapes: faixas numeradas abaixo dos números das casas */
+.neck.has-shape-map { grid-template-rows: repeat(6, 44px) 28px 24px 24px; }
+
+.shape-map { display: contents; }
+
+.shape-chip {
+  align-self: center;
+  height: 18px;
+  margin: 0 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: var(--neck-chip);
+  color: var(--neck-text);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.shape-chip:hover { background: var(--neck-hover); color: var(--neck-ink); }
+
+.shape-chip[aria-pressed="true"] {
+  background: var(--pearl);
+  color: var(--on-pearl);
+}
+
+.swatch-outside {
+  background: var(--pearl);
+  opacity: 0.3;
+}
+
+.swatch-finger {
+  display: grid;
+  place-items: center;
+  min-width: 15px;
+  height: 15px;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px var(--shape-band-edge);
+  color: var(--pearl);
+  font-size: 0.62rem;
+  font-weight: 750;
+}
+
+/* Reprodutores: botões e opções */
+.player {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.chord-player {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+
+.player-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.player-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 20px;
+}
+
+.player-options.is-stacked {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.player-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 20px;
+}
+
+.player-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.player-field output {
+  min-width: 64px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.player-field input[type="range"] { width: 140px; accent-color: var(--ink); }
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--ink);
+}
+
+.player-hint,
+.player-status {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.player-status:empty { display: none; }
+
+.segmented input:disabled + span {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Ícones desenhados em CSS, na cor do texto do botão */
+.button.has-icon { gap: 8px; }
+
+.icon-play,
+.icon-pause,
+.icon-stop,
+.icon-arpeggio {
+  flex: none;
+  display: inline-block;
+}
+
+.icon-play {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 6px 0 6px 10px;
+  border-color: transparent transparent transparent currentColor;
+}
+
+.icon-pause {
+  width: 10px;
+  height: 12px;
+  border-inline: 3px solid currentColor;
+}
+
+.icon-stop {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+/* Três notas subindo, como um arpejo */
+.icon-arpeggio {
+  width: 12px;
+  height: 12px;
+  background:
+    radial-gradient(circle, currentColor 2px, transparent 2.5px) 0 8px / 4px 4px no-repeat,
+    radial-gradient(circle, currentColor 2px, transparent 2.5px) 4px 4px / 4px 4px no-repeat,
+    radial-gradient(circle, currentColor 2px, transparent 2.5px) 8px 0 / 4px 4px no-repeat;
+}
+
+/* Shapes da pentatônica */
+.shapes-panel,
+.scale-player,
+.degree-panel {
+  padding: 20px;
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+
+.shapes-panel .section-head,
+.scale-player .section-head { min-height: 34px; }
+
+.shapes-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.shapes-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.shape-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shape-tabs {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+}
+
+.shape-tabs label { flex: 1; }
+
+.icon-button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.icon-button:hover { border-color: var(--ink); }
+
+.shape-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 70ch;
+}
+
+.shape-info p { margin: 0; }
+
+.shape-headline {
+  font-size: 1.05rem;
+  font-weight: 750;
+  font-stretch: 112%;
+}
+
+.shape-tip { color: var(--muted); font-size: 0.92rem; }
+
+/* Campo harmônico */
+.field-note {
+  margin: -4px 0 14px;
+  color: var(--muted);
+}
+
+.field-cards {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.degree-item { position: relative; }
+
+.degree-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  width: 100%;
+  height: 100%;
+  padding: 12px 12px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.degree-card:hover { border-color: var(--ink); }
+
+.degree-card[aria-pressed="true"] {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.degree-numeral {
+  font-size: 0.85rem;
+  font-weight: 750;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.degree-name {
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-stretch: 115%;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.degree-spoken { font-size: 0.85rem; }
+
+.degree-tones {
+  margin-top: 4px;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.degree-formula {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.degree-function {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Função harmônica: a mesma tinta em três intensidades, sem cores novas. */
+.degree-function.is-tonic { background: var(--ink); color: var(--on-ink); }
+.degree-function.is-subdominant { background: var(--fill); color: var(--ink); }
+.degree-function.is-dominant { box-shadow: inset 0 0 0 1.5px var(--ink); color: var(--ink); }
+
+.degree-play {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0 0 0 3px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fill);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.degree-play:hover { background: var(--ink); color: var(--on-ink); }
+
+.field-table-wrap { overflow-x: auto; }
+
+.field-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.field-table th,
+.field-table td {
+  padding: 8px 10px;
+  border-top: 1px solid var(--line-soft);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.field-table thead th {
+  border-top: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.field-table tr.is-selected { background: var(--surface); }
+.field-table tr.is-selected .table-chord { box-shadow: inset 0 0 0 1px var(--ink); border-color: var(--ink); }
+.field-table .degree-play { position: static; }
+.field-table .degree-function { margin: 0; }
+
+.table-chord {
+  min-width: 72px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.table-chord:hover { border-color: var(--ink); }
+
+.degree-kicker {
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.degree-panel h2 {
+  margin: 2px 0 8px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  font-stretch: 112%;
+}
+
+.degree-relation { margin: 0 0 14px; }
+
+.degree-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  margin: 0 0 16px;
+}
+
+.degree-facts dt {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.degree-facts dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.degree-subtitle {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.note-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Notas marcadas: botão de ouvir */
+.card-play {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0 0 0 3px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--fill);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.card-play:hover { background: var(--ink); color: var(--on-ink); }
+
+/* Som: painel no rodapé e botão de parar */
+.ramp.sound { margin-left: 0; }
+
+.ramp-field.is-column {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.ramp-panel select {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+}
+
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.range-row input { flex: 1; accent-color: var(--ink); }
+
+.range-row output {
+  min-width: 44px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.stop-sound {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-m);
+  background: var(--sound);
+  color: var(--on-sound);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.stop-sound::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
 /* Telas médias: a bancada vira uma coluna */
 @media (max-width: 980px) {
   .bench,
@@ -1338,6 +1987,7 @@ body[data-mode][data-running="true"] .bench {
   }
 
   .root-options { grid-template-columns: repeat(6, 44px); }
+  .field-cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 }
 
 @media (max-width: 640px) {
@@ -1353,7 +2003,7 @@ body[data-mode][data-running="true"] .bench {
   .tabs { order: 3; flex: 1; }
   .theme-toggle { order: 4; margin: 0 0 4px 8px; }
   .tabs label { flex: 1; }
-  .tabs span { justify-content: center; width: 100%; padding: 8px 4px 12px; }
+  .tabs label > span { justify-content: center; width: 100%; padding: 8px 4px 12px; }
 
   .choose { gap: 14px; padding-block: 16px; }
   .control { width: 100%; }
@@ -1367,6 +2017,27 @@ body[data-mode][data-running="true"] .bench {
   .legend { gap: 4px 14px; font-size: 0.78rem; }
   /* Casas um pouco mais baixas, para o braço caber na primeira tela. */
   .neck { grid-template-rows: repeat(6, 38px) 24px; }
+  .neck.has-shape-map { grid-template-rows: repeat(6, 38px) 24px 22px 22px; }
+  .neck-tools { margin-left: 0; }
+  .tabs .tab-extra { display: none; }
+  /* Quatro abas e o botão de tema na mesma linha. */
+  .tabs { flex: 1 1 calc(100% - 48px); min-width: 0; }
+  .tabs label { min-width: 0; }
+  .tabs label > span { font-size: 0.92rem; font-stretch: 100%; padding-inline: 2px; }
+  .shape-nav { gap: 6px; }
+  .shape-nav .icon-button { width: 36px; }
+  .shape-tabs span { padding: 0 4px; }
+
+  .shapes-panel,
+  .scale-player,
+  .degree-panel { padding: 16px; }
+  .chord-player { padding: 12px; }
+  .player-options { gap: 12px; }
+  .player-field input[type="range"] { flex: 1; width: auto; }
+  .player-field { width: 100%; }
+  .field-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .degree-name { font-size: 1.35rem; }
+  .degree-facts { grid-template-columns: 1fr; }
   .inlay { gap: 66px; }
   .note { width: 30px; height: 30px; }
   .pos.is-target .note { width: 34px; height: 34px; }
@@ -1394,8 +2065,9 @@ body[data-mode][data-running="true"] .bench {
   .bpm-number input { width: 70px; font-size: 1.5rem; }
   .beats { gap: 6px; }
   .transport-inner { position: relative; }
-  .bpm-range { order: 5; flex: 1 1 auto; max-width: none; }
+  .bpm-range { order: 5; flex: 1 1 60px; max-width: none; }
   .ramp { order: 6; position: static; }
+  .stop-sound { order: 7; }
   .ramp summary { height: 36px; padding: 0 12px; }
   .ramp-summary { display: none; }
   .ramp-panel { left: var(--gutter); right: var(--gutter); width: auto; }
